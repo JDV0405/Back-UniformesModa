@@ -10,8 +10,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "express": "^5.1.0",
     "mysql2": "^3.14.0",
-    "pg": "^8.15.6"
+    "pg": "^8.15.6",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   }
 }
