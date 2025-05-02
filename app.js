@@ -1,11 +1,18 @@
 const express = require('express');
 const app = express();
+const cors = require('cors');
 const usuarioRoutes = require('./routes/createUsers.routes.js');
 const orderRoutes = require('./routes/orderUsers.routes.js');
 
 // Swagger
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger.js');
+
+// CORS
+app.use(cors({
+  origin: 'http://localhost:5173', // tu frontend
+  credentials: true, // si usás cookies o tokens en headers
+}));
 
 // Middleware
 app.use(express.json());
