@@ -20,19 +20,20 @@ const getOrdersByClientId = async (clienteId) => {
     // Obtener las órdenes del cliente
     const orders = await pool.query(
       `SELECT op.*, 
-              c.nombre as cliente_nombre, 
-              c.tipo as cliente_tipo, 
-              e.nombre as empleado_nombre, 
-              e.apellidos as empleado_apellidos,
+              c.nombre as cliente_nombre,
               (
                 SELECT dpo.estado
                 FROM detalle_producto_orden dpo
                 WHERE dpo.id_orden = op.id_orden
                 LIMIT 1
-              ) AS estado_general
+              ) AS estado_general,
+              (
+                SELECT MIN(dp.fecha_inicio_proceso)
+                FROM detalle_proceso dp
+                WHERE dp.id_orden = op.id_orden
+              ) AS fecha_inicio_proceso
       FROM orden_produccion op
       JOIN cliente c ON op.id_cliente = c.id_cliente
-      LEFT JOIN empleado e ON op.cedula_empleado_responsable = e.cedula
       WHERE op.id_cliente = $1`,
       [clienteId]
     );
