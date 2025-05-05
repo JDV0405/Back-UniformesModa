@@ -130,6 +130,7 @@ const OrderController = {
   advanceOrder: async (req, res) => {
     try {
       const { idDetalleProcesoActual, idProcesoSiguiente, cedulaEmpleadoSiguiente, observaciones } = req.body;
+      const cedulaEmpleadoActual = req.cedula; // Obtenemos la cédula del empleado actual del token JWT
       
       if (!idDetalleProcesoActual || !idProcesoSiguiente) {
         return res.status(400).json({ 
@@ -138,11 +139,12 @@ const OrderController = {
         });
       }
       
-      // Ahora cedulaEmpleadoSiguiente es opcional
+      // Ahora pasamos la cédula del empleado actual que está avanzando la orden
       const result = await OrderModel.advanceOrderToNextProcess(
         idDetalleProcesoActual,
         idProcesoSiguiente,
-        cedulaEmpleadoSiguiente || null, // Explícitamente enviamos null si no viene
+        cedulaEmpleadoActual,           // Empleado que está avanzando la orden
+        cedulaEmpleadoSiguiente || null, // Empleado asignado al siguiente proceso (opcional)
         observaciones || ''
       );
       

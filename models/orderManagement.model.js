@@ -56,7 +56,7 @@ const UserModel = {
 
 // Modelo para gestión de órdenes
 const OrderModel = {
-  // Obtener órdenes asignadas a un empleado en un proceso específico
+  // Obtener órdenes asignadas a un proceso específico
   getOrdersByProcess: async (idProceso) => {
     try {
       const query = `
@@ -120,89 +120,90 @@ const OrderModel = {
     }
   },
 
-  // Avanzar una orden al siguiente proceso
-advanceOrderToNextProcess: async (idDetalleProcesoActual, idProcesoSiguiente, cedulaEmpleadoSiguiente = null, observaciones = '') => {
-  try {
-    // Iniciar transacción
-    await pool.query('BEGIN');
+// Avanzar una orden al siguiente proceso
+  advanceOrderToNextProcess: async (idDetalleProcesoActual, idProcesoSiguiente, cedulaEmpleadoActual, cedulaEmpleadoSiguiente = null, observaciones = '') => {
+    try {
+      // Iniciar transacción
+      await pool.query('BEGIN');
 
-    // 1. Obtener información del detalle de proceso actual
-    const queryActual = `
-      SELECT id_orden, id_proceso
-      FROM detalle_proceso
-      WHERE id_detalle_proceso = $1 AND estado = 'En Proceso'
-    `;
-    const procesoActual = await pool.query(queryActual, [idDetalleProcesoActual]);
-    
-    if (procesoActual.rows.length === 0) {
-      throw new Error('Detalle de proceso no encontrado o ya finalizado');
-    }
-    
-    const { id_orden } = procesoActual.rows[0];
-    
-    // 2. Marcar el proceso actual como completado
-    const updateActual = `
-      UPDATE detalle_proceso
-      SET estado = 'Completado', fecha_final_proceso = CURRENT_TIMESTAMP
-      WHERE id_detalle_proceso = $1
-      RETURNING *
-    `;
-    await pool.query(updateActual, [idDetalleProcesoActual]);
-    
-    // 3. Si no se proporciona un empleado específico, buscar uno del proceso siguiente
-    let empleadoAsignado = cedulaEmpleadoSiguiente;
-    
-    if (!empleadoAsignado) {
-      // Buscar un empleado que trabaje en el proceso siguiente
-      const queryEmpleado = `
-        SELECT e.cedula 
-        FROM empleado e
-        JOIN rol r ON e.id_rol = r.id_rol
-        WHERE r.nombre_rol = (
-          SELECT nombre FROM estado_proceso WHERE id_proceso = $1
-        )
-        AND e.estado = true
-        LIMIT 1
+      // 1. Obtener información del detalle de proceso actual
+      const queryActual = `
+        SELECT id_orden, id_proceso
+        FROM detalle_proceso
+        WHERE id_detalle_proceso = $1 AND estado = 'En Proceso'
       `;
-      const empleadoResult = await pool.query(queryEmpleado, [idProcesoSiguiente]);
+      const procesoActual = await pool.query(queryActual, [idDetalleProcesoActual]);
       
-      if (empleadoResult.rows.length > 0) {
-        empleadoAsignado = empleadoResult.rows[0].cedula;
-      } else {
-        // Si no encontramos un empleado específico, usamos el mismo que completó el proceso anterior
-        const queryEmpleadoAnterior = `
-          SELECT cedula_empleado 
-          FROM detalle_proceso 
-          WHERE id_detalle_proceso = $1
-        `;
-        const empleadoAnteriorResult = await pool.query(queryEmpleadoAnterior, [idDetalleProcesoActual]);
-        empleadoAsignado = empleadoAnteriorResult.rows[0].cedula_empleado;
+      if (procesoActual.rows.length === 0) {
+        throw new Error('Detalle de proceso no encontrado o ya finalizado');
       }
+      
+      const { id_orden } = procesoActual.rows[0];
+      
+      // 2. Marcar el proceso actual como completado y registrar quién lo completó
+      const updateActual = `
+        UPDATE detalle_proceso
+        SET estado = 'Completado', 
+            fecha_final_proceso = CURRENT_TIMESTAMP,
+            cedula_empleado = $2,
+            observaciones = CASE WHEN LENGTH($3) > 0 THEN $3 ELSE observaciones END
+        WHERE id_detalle_proceso = $1
+        RETURNING *
+      `;
+      await pool.query(updateActual, [
+        idDetalleProcesoActual, 
+        cedulaEmpleadoActual, 
+        observaciones
+      ]);
+      
+      // 3. Si no se proporciona un empleado específico para el siguiente proceso, buscar uno automáticamente
+      let empleadoAsignado = cedulaEmpleadoSiguiente;
+      
+      if (!empleadoAsignado) {
+        // Buscar un empleado que trabaje en el proceso siguiente
+        const queryEmpleado = `
+          SELECT e.cedula 
+          FROM empleado e
+          JOIN rol r ON e.id_rol = r.id_rol
+          WHERE r.nombre_rol = (
+            SELECT nombre FROM estado_proceso WHERE id_proceso = $1
+          )
+          AND e.estado = true
+          LIMIT 1
+        `;
+        const empleadoResult = await pool.query(queryEmpleado, [idProcesoSiguiente]);
+        
+        if (empleadoResult.rows.length > 0) {
+          empleadoAsignado = empleadoResult.rows[0].cedula;
+        } else {
+          // Si no encontramos un empleado específico, usamos el mismo que completó el proceso anterior
+          empleadoAsignado = cedulaEmpleadoActual;
+        }
+      }
+      
+      // 4. Insertar nuevo detalle de proceso para el siguiente proceso
+      const insertNuevo = `
+        INSERT INTO detalle_proceso (id_orden, id_proceso, cedula_empleado, fecha_inicio_proceso, observaciones)
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4)
+        RETURNING *
+      `;
+      const nuevoDetalle = await pool.query(insertNuevo, [
+        id_orden, 
+        idProcesoSiguiente, 
+        empleadoAsignado,
+        ''  // Observaciones vacías para el nuevo proceso
+      ]);
+      
+      // Confirmar transacción
+      await pool.query('COMMIT');
+      
+      return nuevoDetalle.rows[0];
+    } catch (error) {
+      // Revertir transacción en caso de error
+      await pool.query('ROLLBACK');
+      throw new Error(`Error al avanzar la orden: ${error.message}`);
     }
-    
-    // 4. Insertar nuevo detalle de proceso para el siguiente proceso
-    const insertNuevo = `
-      INSERT INTO detalle_proceso (id_orden, id_proceso, cedula_empleado, observaciones)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *
-    `;
-    const nuevoDetalle = await pool.query(insertNuevo, [
-      id_orden, 
-      idProcesoSiguiente, 
-      empleadoAsignado,
-      observaciones
-    ]);
-    
-    // Confirmar transacción
-    await pool.query('COMMIT');
-    
-    return nuevoDetalle.rows[0];
-  } catch (error) {
-    // Revertir transacción en caso de error
-    await pool.query('ROLLBACK');
-    throw new Error(`Error al avanzar la orden: ${error.message}`);
-  }
-},
+  },
 
   // Obtener detalles completos de una orden
   getOrderDetails: async (idOrden) => {
@@ -220,15 +221,6 @@ advanceOrderToNextProcess: async (idDetalleProcesoActual, idProcesoSiguiente, ce
         throw new Error('Orden no encontrada');
       }
       
-      // Obtener productos de la orden
-      const queryProductos = `
-        SELECT dpo.*, p.nombre as nombre_producto
-        FROM detalle_producto_orden dpo
-        JOIN producto p ON dpo.id_producto = p.id_producto
-        WHERE dpo.id_orden = $1
-      `;
-      const productos = await pool.query(queryProductos, [idOrden]);
-      
       // Obtener historial de procesos
       const queryProcesos = `
         SELECT dp.*, ep.nombre as nombre_proceso, 
@@ -243,7 +235,6 @@ advanceOrderToNextProcess: async (idDetalleProcesoActual, idProcesoSiguiente, ce
       
       return {
         orden: orden.rows[0],
-        productos: productos.rows,
         procesos: procesos.rows
       };
     } catch (error) {
