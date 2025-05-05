@@ -4,6 +4,7 @@ const cors = require('cors');
 const usuarioRoutes = require('./routes/createUsers.routes.js');
 const orderRoutes = require('./routes/orderUsers.routes.js');
 const orderManagementRoutes = require('./routes/orderManagement.routes.js');
+const createOrder = require('./routes/createorderProduction.routes.js');
 
 // Swagger
 const swaggerUi = require('swagger-ui-express');
@@ -24,6 +25,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Rutas API
 app.use('/api', usuarioRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/create', createOrder);
 app.use('/api/orderManagement', orderManagementRoutes);
 
 
