@@ -102,23 +102,14 @@ const UserController = {
   }
 };
 
-// Controlador para gestión de órdenes
 const OrderController = {
   // Obtener órdenes según el rol y proceso
   getOrdersByRole: async (req, res) => {
     try {
-      const { userId, rol, cedula } = req;
       const { idProceso } = req.params;
       
-      let orders;
-      
-      // Roles administrativos pueden ver todas las órdenes del proceso
-      // Los roles operativos solo ven sus propias órdenes
-      if (rol === 1) { // Asumiendo que 1 es el ID del rol administrativo
-        orders = await OrderModel.getOrdersByProcess(idProceso);
-      } else {
-        orders = await OrderModel.getOrdersByEmployeeAndProcess(cedula, idProceso);
-      }
+      // Ya no necesitamos diferenciar por rol, todos ven las mismas órdenes del proceso
+      const orders = await OrderModel.getOrdersByProcess(idProceso);
       
       res.status(200).json({
         success: true,
@@ -140,17 +131,18 @@ const OrderController = {
     try {
       const { idDetalleProcesoActual, idProcesoSiguiente, cedulaEmpleadoSiguiente, observaciones } = req.body;
       
-      if (!idDetalleProcesoActual || !idProcesoSiguiente || !cedulaEmpleadoSiguiente) {
+      if (!idDetalleProcesoActual || !idProcesoSiguiente) {
         return res.status(400).json({ 
           success: false, 
-          message: 'Todos los campos son requeridos' 
+          message: 'El detalle del proceso actual y el ID del proceso siguiente son obligatorios' 
         });
       }
       
+      // Ahora cedulaEmpleadoSiguiente es opcional
       const result = await OrderModel.advanceOrderToNextProcess(
         idDetalleProcesoActual,
         idProcesoSiguiente,
-        cedulaEmpleadoSiguiente,
+        cedulaEmpleadoSiguiente || null, // Explícitamente enviamos null si no viene
         observaciones || ''
       );
       
