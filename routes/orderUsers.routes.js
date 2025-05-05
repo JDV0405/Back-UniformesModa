@@ -44,10 +44,6 @@ const orderUserController = require('../controllers/orderUsers.controller.js');
  *                         type: string
  *                       cliente_tipo:
  *                         type: string
- *                       empleado_nombre:
- *                         type: string
- *                       empleado_apellidos:
- *                         type: string
  *                       estado_general:
  *                         type: string
  *                 message:
