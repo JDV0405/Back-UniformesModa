@@ -240,7 +240,37 @@ const OrderModel = {
     } catch (error) {
       throw new Error(`Error al obtener detalles de la orden: ${error.message}`);
     }
-  }
+  },
+
+  getAllOrders: async () => {
+    try {
+      const query = `
+        SELECT 
+          op.id_orden as numero_orden, 
+          c.nombre as nombre_cliente,
+          ep.nombre as nombre_proceso,
+          dp.id_detalle_proceso,
+          dp.fecha_inicio_proceso,
+          dp.estado as estado_proceso, 
+          dp.observaciones,
+          dp.fecha_final_proceso,
+          e.nombre as nombre_empleado,
+          e.apellidos as apellidos_empleado
+        FROM orden_produccion op
+        JOIN detalle_proceso dp ON op.id_orden = dp.id_orden
+        JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+        JOIN cliente c ON op.id_cliente = c.id_cliente
+        JOIN empleado e ON dp.cedula_empleado = e.cedula
+        WHERE dp.estado = 'En Proceso'
+        ORDER BY dp.fecha_inicio_proceso ASC
+      `;
+      const result = await pool.query(query);
+      return result.rows;
+    } catch (error) {
+      throw new Error(`Error al obtener todas las órdenes: ${error.message}`);
+    }
+  },
+
 };
 
 module.exports = {

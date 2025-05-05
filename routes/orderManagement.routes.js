@@ -14,6 +14,7 @@ router.get('/profile', UserController.getProfile);
 
 // Rutas de órdenes (protegidas)
 router.get('/orders/process/:idProceso', OrderController.getOrdersByRole);
+router.get('/orders/all', OrderController.getAllOrders);
 router.post('/orders/advance', OrderController.advanceOrder);
 router.get('/orders/:idOrden', OrderController.getOrderDetails);
 
