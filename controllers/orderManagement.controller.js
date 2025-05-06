@@ -184,7 +184,27 @@ const OrderController = {
         error: error.message 
       });
     }
-  }
+  },
+  
+  getAllOrders: async (req, res) => {
+    try {
+      const orders = await OrderModel.getAllOrders();
+      
+      // Si no hay órdenes, devolvemos un array vacío en lugar de error
+      res.status(200).json({
+        success: true,
+        data: orders
+      });
+      
+    } catch (error) {
+      console.error('Error al obtener todas las órdenes:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error en el servidor', 
+        error: error.message 
+      });
+    }
+  },
 };
 
 module.exports = {
