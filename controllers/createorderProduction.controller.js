@@ -14,7 +14,7 @@ async function createOrder(req, res) {
         // Validate and get employee ID
         let employeeId;
         
-        if (!req.body.nombreAsesor) {
+        if (!req.body.cedulaEmpleadoResponsable) {
             return res.status(400).json({
                 success: false,
                 message: "El nombre del asesor es requerido"
@@ -24,7 +24,7 @@ async function createOrder(req, res) {
         // Check if the input is a valid employee ID
         const employeeResult = await pool.query(
             'SELECT cedula FROM empleado WHERE cedula = $1',
-            [req.body.nombreAsesor]
+            [req.body.cedulaEmpleadoResponsable]
         );
         
         if (employeeResult.rows.length === 0) {

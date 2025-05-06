@@ -20,7 +20,7 @@ const getOrdersByClientId = async (clienteId) => {
     // Obtener las órdenes del cliente
     const orders = await pool.query(
       `SELECT op.*, 
-              c.nombre as cliente_nombre,
+              c.nombre as cliente_nombre, c.correo as cliente_correo,
               (
                 SELECT dpo.estado
                 FROM detalle_producto_orden dpo
@@ -51,12 +51,20 @@ const getOrdersByClientId = async (clienteId) => {
  */
 const getOrderDetailsById = async (orderId) => {
   try {
-    // Obtener información de la orden
+    // Obtener información de la orden con datos extendidos del cliente
     const orderQuery = await pool.query(
-      `SELECT op.*, c.nombre as cliente_nombre
-       FROM orden_produccion op
-       JOIN cliente c ON op.id_cliente = c.id_cliente
-       WHERE op.id_orden = $1`,
+      `SELECT op.*, 
+        c.nombre as cliente_nombre, 
+        c.correo as cliente_correo,
+        (SELECT tc.telefono FROM telefono_cliente tc WHERE tc.id_cliente = c.id_cliente LIMIT 1) as cliente_telefono,
+        (SELECT tc.tipo FROM telefono_cliente tc WHERE tc.id_cliente = c.id_cliente LIMIT 1) as tipo_telefono,
+        (SELECT d.direccion FROM direccion d WHERE d.id_cliente = c.id_cliente LIMIT 1) as cliente_direccion,
+        (SELECT ci.ciudad FROM ciudad ci 
+          JOIN direccion d ON ci.id_ciudad = d.id_ciudad 
+          WHERE d.id_cliente = c.id_cliente LIMIT 1) as cliente_ciudad
+      FROM orden_produccion op
+      JOIN cliente c ON op.id_cliente = c.id_cliente
+      WHERE op.id_orden = $1`,
       [orderId]
     );
     
@@ -69,9 +77,9 @@ const getOrderDetailsById = async (orderId) => {
     // Obtener productos de la orden
     const productsQuery = await pool.query(
       `SELECT dpo.*, p.nombre_producto
-       FROM detalle_producto_orden dpo
-       JOIN producto p ON dpo.id_producto = p.id_producto
-       WHERE dpo.id_orden = $1`,
+      FROM detalle_producto_orden dpo
+      JOIN producto p ON dpo.id_producto = p.id_producto
+      WHERE dpo.id_orden = $1`,
       [orderId]
     );
     
