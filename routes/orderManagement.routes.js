@@ -161,16 +161,27 @@ router.get('/orders/process/:idProceso', OrderController.getOrdersByRole);
  *               items:
  *                 type: object
  *                 properties:
- *                   id:
+ *                   numero_orden:
+ *                     type: integer
+ *                   nombre_cliente:
  *                     type: string
- *                   cliente:
+ *                   nombre_proceso:
  *                     type: string
- *                   fecha:
+ *                   id_detalle_proceso:
+ *                     type: integer
+ *                   fecha_inicio_proceso:
  *                     type: string
  *                     format: date-time
- *                   estado:
+ *                   estado_proceso:
  *                     type: string
- *                   proceso:
+ *                   observaciones:
+ *                     type: string
+ *                   fecha_final_proceso:
+ *                     type: string
+ *                     format: date-time
+ *                   nombre_empleado:
+ *                     type: string
+ *                   apellidos_empleado:
  *                     type: string
  *       401:
  *         description: No autorizado - Token inválido o expirado
@@ -259,52 +270,63 @@ router.post('/orders/advance', OrderController.advanceOrder);
  *             schema:
  *               type: object
  *               properties:
- *                 id:
- *                   type: string
- *                 cliente:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
  *                   type: object
  *                   properties:
- *                     id:
- *                       type: string
- *                     nombre:
- *                       type: string
- *                 fechaCreacion:
- *                   type: string
- *                   format: date-time
- *                 estado:
- *                   type: string
- *                 proceso:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                     nombre:
- *                       type: string
- *                 historial:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       proceso:
- *                         type: string
- *                       fecha:
- *                         type: string
- *                         format: date-time
- *                       usuario:
- *                         type: string
- *                       comentario:
- *                         type: string
- *                 items:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       producto:
- *                         type: string
- *                       cantidad:
- *                         type: number
- *                       precio:
- *                         type: number
+ *                     orden:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id_orden:
+ *                             type: integer
+ *                           id_cliente:
+ *                             type: string
+ *                           fecha_aproximada:
+ *                             type: string
+ *                             format: date-time
+ *                           tipo_pago:
+ *                             type: string
+ *                           id_comprobante_pago:
+ *                             type: integer
+ *                           observaciones:
+ *                             type: string
+ *                           cedula_empleado_responsable:
+ *                             type: string
+ *                           nombre_cliente:
+ *                             type: string
+ *                     procesos:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id_detalle_proceso:
+ *                             type: integer
+ *                           id_orden:
+ *                             type: integer
+ *                           id_proceso:
+ *                             type: integer
+ *                           fecha_inicio_proceso:
+ *                             type: string
+ *                             format: date-time
+ *                           fecha_final_proceso:
+ *                             type: string
+ *                             format: date-time
+ *                           cedula_empleado:
+ *                             type: string
+ *                           observaciones:
+ *                             type: string
+ *                           estado:
+ *                             type: string
+ *                           nombre_proceso:
+ *                             type: string
+ *                           nombre_empleado:
+ *                             type: string
+ *                           apellidos_empleado:
+ *                             type: string
  *       401:
  *         description: No autorizado - Token inválido o expirado
  *       403:
