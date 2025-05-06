@@ -56,12 +56,22 @@ const getOrderDetailsById = async (orderId) => {
       `SELECT op.*, 
         c.nombre as cliente_nombre, 
         c.correo as cliente_correo,
+        c.tipo as tipo_cliente,
         (SELECT tc.telefono FROM telefono_cliente tc WHERE tc.id_cliente = c.id_cliente LIMIT 1) as cliente_telefono,
         (SELECT tc.tipo FROM telefono_cliente tc WHERE tc.id_cliente = c.id_cliente LIMIT 1) as tipo_telefono,
         (SELECT d.direccion FROM direccion d WHERE d.id_cliente = c.id_cliente LIMIT 1) as cliente_direccion,
         (SELECT ci.ciudad FROM ciudad ci 
-          JOIN direccion d ON ci.id_ciudad = d.id_ciudad 
-          WHERE d.id_cliente = c.id_cliente LIMIT 1) as cliente_ciudad
+          JOIN direccion d ON ci.id_ciudad = d.id_ciudad
+          WHERE d.id_cliente = c.id_cliente LIMIT 1) as cliente_ciudad,
+        (CASE 
+          WHEN c.tipo = 'Natural' THEN 
+            (SELECT json_build_object('tipo_doc', n.tipo_doc, 'profesion', n.profesion)
+            FROM cli_natural n WHERE n.id_cliente = c.id_cliente)
+          WHEN c.tipo = 'Juridico' THEN 
+            (SELECT json_build_object('sector_economico', j.sector_economico)
+            FROM juridico j WHERE j.id_cliente = c.id_cliente)
+          ELSE NULL
+        END) as datos_especificos
       FROM orden_produccion op
       JOIN cliente c ON op.id_cliente = c.id_cliente
       WHERE op.id_orden = $1`,
@@ -86,9 +96,9 @@ const getOrderDetailsById = async (orderId) => {
     // Obtener procesos de la orden
     const processesQuery = await pool.query(
       `SELECT dp.*, ep.nombre as nombre_proceso
-       FROM detalle_proceso dp
-       JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
-       WHERE dp.id_orden = $1`,
+      FROM detalle_proceso dp
+      JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+      WHERE dp.id_orden = $1`,
       [orderId]
     );
     
