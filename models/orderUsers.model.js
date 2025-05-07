@@ -21,11 +21,14 @@ const getOrdersByClientId = async (clienteId) => {
     const orders = await pool.query(
       `SELECT op.*, 
               c.nombre as cliente_nombre, c.correo as cliente_correo,
-              (
-                SELECT dpo.estado
-                FROM detalle_producto_orden dpo
-                WHERE dpo.id_orden = op.id_orden
-                LIMIT 1
+              COALESCE(
+                (
+                  SELECT dp.estado
+                  FROM detalle_proceso dp
+                  WHERE dp.id_orden = op.id_orden
+                  ORDER BY dp.fecha_inicio_proceso DESC
+                  LIMIT 1
+                ), 'Pendiente'
               ) AS estado_general,
               (
                 SELECT MIN(dp.fecha_inicio_proceso)

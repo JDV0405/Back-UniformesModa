@@ -83,7 +83,7 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
             `INSERT INTO detalle_proceso(
                 id_orden, id_proceso, fecha_inicio_proceso, cedula_empleado, observaciones, estado
             ) VALUES($1, $2, CURRENT_TIMESTAMP, $3, $4, $5) RETURNING id_detalle_proceso`,
-            [orderId, initialProcessId, orderData.cedulaEmpleadoResponsable, 'Inicio de orden', 'En Proceso']
+            [orderId, initialProcessId, orderData.cedulaEmpleadoResponsable, '', 'En Proceso']
         );
         
         const processId = processResult.rows[0].id_detalle_proceso;
@@ -123,7 +123,7 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                     fecha_inicio_proceso: new Date(),
                     fecha_final_proceso: null,
                     cedula_empleado: orderData.cedulaEmpleadoResponsable,
-                    observaciones: 'Inicio de orden',
+                    observaciones: '',
                     estado: 'En Proceso',
                     nombre_proceso: processNameResult.rows[0]?.nombre || 'Proceso inicial'
                 }]
