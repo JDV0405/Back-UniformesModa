@@ -163,6 +163,40 @@ const OrderController = {
       });
     }
   },
+
+  completeOrder: async (req, res) => {
+    try {
+      const { idOrden, observaciones } = req.body;
+      const cedulaEmpleado = req.cedula; // Obtenemos la cédula del empleado del token JWT
+      
+      if (!idOrden) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'El ID de la orden es obligatorio' 
+        });
+      }
+      
+      const result = await OrderModel.completeOrder(
+        idOrden,
+        cedulaEmpleado,
+        observaciones || ''
+      );
+      
+      res.status(200).json({
+        success: true,
+        message: 'Orden finalizada correctamente',
+        data: result
+      });
+      
+    } catch (error) {
+      console.error('Error al finalizar orden:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error en el servidor', 
+        error: error.message 
+      });
+    }
+  },
   
   // Obtener detalles de una orden
   getOrderDetails: async (req, res) => {
