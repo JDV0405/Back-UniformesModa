@@ -1,11 +1,9 @@
 const { UserModel, OrderModel } = require('../models/orderManagement.model.js'); // Importar modelos
 const jwt = require('jsonwebtoken');
 
-// Configuración para JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'uniformes_moda_secret_key';
 const JWT_EXPIRES = '24h';
 
-// Controlador para gestión de usuarios/empleados
 const UserController = {
   // Login de usuarios
   login: async (req, res) => {

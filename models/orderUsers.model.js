@@ -17,7 +17,6 @@ const getOrdersByClientId = async (clienteId) => {
       return { clienteExiste: false, orders: [] };
     }
     
-    // Obtener las órdenes del cliente
     const orders = await pool.query(
       `SELECT op.*, 
               c.nombre as cliente_nombre, c.correo as cliente_correo,
@@ -54,7 +53,6 @@ const getOrdersByClientId = async (clienteId) => {
  */
 const getOrderDetailsById = async (orderId) => {
   try {
-    // Obtener información de la orden con datos extendidos del cliente
     const orderQuery = await pool.query(
       `SELECT op.*, 
         c.nombre as cliente_nombre, 

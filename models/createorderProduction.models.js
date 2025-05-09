@@ -3,9 +3,7 @@ const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
 
-/**
- * Creates a new production order with client information
- */
+
 async function createOrder(orderData, clientData, products, paymentInfo, paymentProofFile) {
     const client = await pool.connect();
     
@@ -144,9 +142,6 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
     }
 }
 
-/**
- * Adds product to order
- */
 async function addProductToOrder(client, orderId, productId, quantity, userAttributes, hasBrodery, observations, productUrl) {
     const result = await client.query(
         `INSERT INTO detalle_producto_orden(
@@ -159,9 +154,6 @@ async function addProductToOrder(client, orderId, productId, quantity, userAttri
     return result.rows[0].id_detalle;
 }
 
-/**
- * Creates or updates client information based on client type
- */
 async function createOrUpdateClient(client, clientData) {
     // Check if client already exists
     const checkClient = await client.query(
@@ -212,9 +204,6 @@ async function createOrUpdateClient(client, clientData) {
     return clientData.cedula;
 }
 
-/**
- * Adds or updates client phone number
- */
 async function addClientPhone(client, clientId, phoneNumber, phoneType) {
     // Check if phone exists
     const checkPhone = await client.query(
@@ -231,9 +220,6 @@ async function addClientPhone(client, clientId, phoneNumber, phoneType) {
     }
 }
 
-/**
- * Adds client address
- */
 async function addClientAddress(client, clientId, address, cityId) {
     await client.query(
         'INSERT INTO direccion(id_cliente, direccion, id_ciudad) VALUES($1, $2, $3)',
@@ -241,9 +227,6 @@ async function addClientAddress(client, clientId, address, cityId) {
     );
 }
 
-/**
- * Saves payment proof file and returns the path
- */
 async function savePaymentProof(file) {
     const uploadsDir = path.join(__dirname, '../uploads/comprobantes');
     
@@ -274,9 +257,6 @@ async function savePaymentProof(file) {
     });
 }
 
-/**
- * Creates payment proof record
- */
 async function createPaymentProof(client, filePath) {
     const result = await client.query(
         'INSERT INTO comprobante_pago(url_comprobante, activo) VALUES($1, true) RETURNING id_comprobante_pago',
@@ -286,9 +266,6 @@ async function createPaymentProof(client, filePath) {
     return result.rows[0].id_comprobante_pago;
 }
 
-/**
- * Creates production order
- */
 async function createProductionOrder(client, clientId, dueDate, paymentType, comprobanteId, observations, employeeId) {
     const result = await client.query(
         `INSERT INTO orden_produccion(
@@ -301,9 +278,6 @@ async function createProductionOrder(client, clientId, dueDate, paymentType, com
     return result.rows[0].id_orden;
 }
 
-/**
- * Adds product to order
- */
 async function addProductToOrder(client, orderId, productId, quantity, userAttributes, hasBrodery, observations, productUrl) {
     await client.query(
         `INSERT INTO detalle_producto_orden(

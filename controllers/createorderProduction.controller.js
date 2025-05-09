@@ -3,15 +3,11 @@ const multer = require('multer');
 const pool = require('../database/db.js');
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Middleware for file upload
 const uploadMiddleware = upload.single('comprobanteFile');
 
-/**
- * Creates a new production order
- */
+
 async function createOrder(req, res) {
     try {
-        // Validate and get employee ID
         let employeeId;
         
         if (!req.body.cedulaEmpleadoResponsable) {
@@ -21,14 +17,12 @@ async function createOrder(req, res) {
             });
         }
         
-        // Check if the input is a valid employee ID
         const employeeResult = await pool.query(
             'SELECT cedula FROM empleado WHERE cedula = $1',
             [req.body.cedulaEmpleadoResponsable]
         );
         
         if (employeeResult.rows.length === 0) {
-            // If not found directly, try to find by name
             const employeeByNameResult = await pool.query(
                 'SELECT cedula FROM empleado WHERE nombre ILIKE $1',
                 [`%${req.body.nombreAsesor}%`]
@@ -46,14 +40,12 @@ async function createOrder(req, res) {
             employeeId = employeeResult.rows[0].cedula;
         }
         
-        // Order data with validated employee ID
         const orderData = {
             fechaAproximada: new Date(req.body.fechaAproximada) || new Date(),
             observaciones: req.body.observaciones,
             cedulaEmpleadoResponsable: employeeId
         };
         
-        // Client data
         const clientData = {
             cedula: req.body.cedula,
             nombre: req.body.nombre,
@@ -64,7 +56,6 @@ async function createOrder(req, res) {
             idCiudad: req.body.idCiudad
         };
         
-        // Add type-specific fields
         if (clientData.tipo === 'Natural') {
             clientData.tipoDoc = req.body.tipoDocumento;
             clientData.profesion = req.body.profesion;
@@ -72,15 +63,12 @@ async function createOrder(req, res) {
             clientData.sectorEconomico = req.body.sectorEconomico;
         }
         
-        // Payment info
         const paymentInfo = {
             tipoPago: req.body.tipoPago
         };
         
-        // Parse products from the request
         const products = JSON.parse(req.body.productos || '[]');
         
-        // Create order
         const result = await orderModel.createOrder(
             orderData,
             clientData,

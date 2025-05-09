@@ -16,11 +16,9 @@ const options = {
       },
     ],
   },
-  apis: ['./routes/*.js'], // Ruta donde están tus endpoints documentados
+  apis: ['./routes/*.js'], 
 };
 
 const swaggerSpec = swaggerJSDoc(options);
-
-
 
 module.exports = swaggerSpec;

@@ -1,4 +1,4 @@
-const pool = require('../database/db.js'); // Asegúrate de que la ruta sea correcta
+const pool = require('../database/db.js');
 
 const buscarEmpleadoPorCedula = async (cedula) => {
   const result = await pool.query('SELECT * FROM empleado WHERE cedula = $1', [cedula]);

@@ -1,5 +1,5 @@
 // test.js o en tu controlador
-const pool = require('../database/db'); // Asegúrate de que la ruta sea correcta
+const pool = require('../database/db'); 
 
 pool.query('SELECT NOW()')
   .then(res => {

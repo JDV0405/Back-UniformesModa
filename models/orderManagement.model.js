@@ -56,7 +56,7 @@ const UserModel = {
 
 // Modelo para gestión de órdenes
 const OrderModel = {
-  // Obtener órdenes asignadas a un proceso específico
+  
   getOrdersByProcess: async (idProceso) => {
     try {
       const query = `
@@ -87,13 +87,11 @@ const OrderModel = {
     }
   },
 
-  // Mantenemos este método por compatibilidad pero será obsoleto
   getOrdersByEmployeeAndProcess: async (cedulaEmpleado, idProceso) => {
     // Simplemente llamamos al método actualizado, ignorando la cédula
     return OrderModel.getOrdersByProcess(idProceso);
   },
 
-  // Obtener todas las órdenes en un proceso específico (para supervisores)
   getOrdersByProcess: async (idProceso) => {
     try {
       const query = `
@@ -120,7 +118,6 @@ const OrderModel = {
     }
   },
 
-  // Avanzar una orden al siguiente proceso
   advanceOrderToNextProcess: async (idDetalleProcesoActual, idProcesoSiguiente, cedulaEmpleadoActual, cedulaEmpleadoSiguiente = null, observaciones = '') => {
     try {
       // Iniciar transacción
@@ -312,7 +309,7 @@ const OrderModel = {
     }
   },
 
-  // Obtener detalles completos de una orden
+  
   getOrderDetails: async (idOrden) => {
     try {
       // Obtener información de la orden
