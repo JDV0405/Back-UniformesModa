@@ -237,7 +237,28 @@ const OrderController = {
       });
     }
   },
+
+  getCompletedOrders: async (req, res) => {
+    try {
+      const completedOrders = await OrderModel.getCompletedOrders();
+      
+      res.status(200).json({
+        success: true,
+        data: completedOrders
+      });
+      
+    } catch (error) {
+      console.error('Error al obtener órdenes completadas:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error en el servidor', 
+        error: error.message 
+      });
+    }
+  },
 };
+
+
 
 module.exports = {
   UserController,

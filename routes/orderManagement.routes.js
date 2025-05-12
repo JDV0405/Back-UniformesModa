@@ -303,6 +303,45 @@ router.post('/orders/complete', OrderController.completeOrder);
 
 /**
  * @swagger
+ * /orders/completed:
+ *   get:
+ *     summary: Obtiene todas las órdenes completadas
+ *     tags: [Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de órdenes completadas obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       numero_orden:
+ *                         type: integer
+ *                       nombre_cliente:
+ *                         type: string
+ *                       fecha_finalizacion:
+ *                         type: string
+ *                         format: date-time
+ *                       empleados_involucrados:
+ *                         type: string
+ *       401:
+ *         description: No autorizado - Token inválido o expirado
+ *       500:
+ *         description: Error interno del servidor
+ */
+router.get('/orders/completed', OrderController.getCompletedOrders);
+
+/**
+ * @swagger
  * /orders/{idOrden}:
  *   get:
  *     summary: Obtiene los detalles de una orden específica
@@ -391,5 +430,7 @@ router.post('/orders/complete', OrderController.completeOrder);
  *         description: Error interno del servidor
  */
 router.get('/orders/:idOrden', OrderController.getOrderDetails);
+
+
 
 module.exports = router;
