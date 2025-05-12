@@ -26,6 +26,7 @@ const orderController = require('../controllers/createorderProduction.controller
  *               - correo
  *               - direccionEntrega
  *               - idCiudad
+ *               - idDepartamento
  *               - tipoPago
  *               - productos
  *             properties:
@@ -72,10 +73,13 @@ const orderController = require('../controllers/createorderProduction.controller
  *               idCiudad:
  *                 type: string
  *                 description: ID de la ciudad de entrega
+ *               idDepartamento:
+ *                 type: string
+ *                 description: ID del departamento de entrega
  *               tipoPago:
  *                 type: string
- *                 enum: [contado, crédito]
- *                 description: Tipo de pago (contado o crédito)
+ *                 enum: [contado, credito]
+ *                 description: Tipo de pago (contado o credito)
  *               productos:
  *                 type: string
  *                 description: Array JSON de productos en formato string

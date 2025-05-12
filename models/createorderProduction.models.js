@@ -18,7 +18,7 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
         await addClientPhone(client, clientId, clientData.telefono, 'Móvil');
         
         // 3. Add client address
-        await addClientAddress(client, clientId, clientData.direccion, clientData.idCiudad);
+        await addClientAddress(client, clientId, clientData.direccion, clientData.idCiudad, clientData.idDepartamento);
         
         // 4. Handle payment proof upload
         let comprobanteId = null;
@@ -220,10 +220,22 @@ async function addClientPhone(client, clientId, phoneNumber, phoneType) {
     }
 }
 
-async function addClientAddress(client, clientId, address, cityId) {
+async function addClientAddress(client, clientId, address, cityId, departmentId) {
+    if (departmentId) {
+        const cityCheck = await client.query(
+            'SELECT id_ciudad FROM ciudad WHERE id_ciudad = $1 AND id_departamento = $2',
+            [cityId, departmentId]
+        );
+        
+        if (cityCheck.rows.length === 0) {
+            throw new Error('La ciudad seleccionada no pertenece al departamento indicado');
+        }
+    }
+    
+    // Insert the address with department info in observations
     await client.query(
-        'INSERT INTO direccion(id_cliente, direccion, id_ciudad) VALUES($1, $2, $3)',
-        [clientId, address, cityId]
+        'INSERT INTO direccion(id_cliente, direccion, id_ciudad, observaciones) VALUES($1, $2, $3, $4)',
+        [clientId, address, cityId, departmentId ? `Departamento ID: ${departmentId}` : null]
     );
 }
 

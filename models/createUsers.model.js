@@ -21,7 +21,7 @@ const crearEmpleado = async ({ cedula, nombre, apellidos, estado, id_rol, telefo
 const crearUsuario = async ({ cedula_empleado, email, contrasena }) => {
   await pool.query(
     `INSERT INTO usuario (cedula_empleado, contrasena, email)
-     VALUES ($1, $2, $3)`,
+    VALUES ($1, $2, $3)`,
     [cedula_empleado, contrasena, email]
   );
 };

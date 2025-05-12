@@ -53,7 +53,8 @@ async function createOrder(req, res) {
             correo: req.body.correo,
             telefono: req.body.numeroCelular,
             direccion: req.body.direccionEntrega,
-            idCiudad: req.body.idCiudad
+            idCiudad: req.body.idCiudad,
+            idDepartamento: req.body.idDepartamento,
         };
         
         if (clientData.tipo === 'Natural') {
