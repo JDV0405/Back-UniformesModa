@@ -64,6 +64,14 @@ const getOrderDetailsById = async (orderId) => {
         (SELECT ci.ciudad FROM ciudad ci 
           JOIN direccion d ON ci.id_ciudad = d.id_ciudad
           WHERE d.id_cliente = c.id_cliente LIMIT 1) as cliente_ciudad,
+        (SELECT dep.id_departamento FROM departamento dep
+          JOIN ciudad ci ON dep.id_departamento = ci.id_departamento
+          JOIN direccion d ON ci.id_ciudad = d.id_ciudad
+          WHERE d.id_cliente = c.id_cliente LIMIT 1) as departamento_id,
+        (SELECT dep.nombre FROM departamento dep
+          JOIN ciudad ci ON dep.id_departamento = ci.id_departamento
+          JOIN direccion d ON ci.id_ciudad = d.id_ciudad
+          WHERE d.id_cliente = c.id_cliente LIMIT 1) as departamento_nombre,
         (CASE 
           WHEN c.tipo = 'Natural' THEN 
             (SELECT json_build_object('tipo_doc', n.tipo_doc, 'profesion', n.profesion)

@@ -5,71 +5,169 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const uploadMiddleware = upload.single('comprobanteFile');
 
-
 async function createOrder(req, res) {
     try {
-        let employeeId;
+        // Check if we're receiving the new nested structure
+        const isNewFormat = req.body.customer && req.body.products;
         
-        if (!req.body.cedulaEmpleadoResponsable) {
-            return res.status(400).json({
-                success: false,
-                message: "El nombre del asesor es requerido"
-            });
-        }
+        let employeeId, orderData, clientData, products, paymentInfo;
         
-        const employeeResult = await pool.query(
-            'SELECT cedula FROM empleado WHERE cedula = $1',
-            [req.body.cedulaEmpleadoResponsable]
-        );
-        
-        if (employeeResult.rows.length === 0) {
-            const employeeByNameResult = await pool.query(
-                'SELECT cedula FROM empleado WHERE nombre ILIKE $1',
-                [`%${req.body.nombreAsesor}%`]
-            );
+        if (isNewFormat) {
+            // Process new JSON format
+            const customerData = req.body.customer || {};
+            const productsData = req.body.products || [];
             
-            if (employeeByNameResult.rows.length === 0) {
+            // Validate employee ID
+            if (!customerData.advisor) {
                 return res.status(400).json({
                     success: false,
-                    message: "No se encontró ningún empleado con el ID o nombre proporcionado"
+                    message: "El ID del asesor es requerido"
                 });
             }
             
-            employeeId = employeeByNameResult.rows[0].cedula;
-        } else {
+            const employeeResult = await pool.query(
+                'SELECT cedula FROM empleado WHERE cedula = $1',
+                [customerData.advisor]
+            );
+            
+            if (employeeResult.rows.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: "No se encontró ningún empleado con el ID proporcionado"
+                });
+            }
+            
             employeeId = employeeResult.rows[0].cedula;
-        }
-        
-        const orderData = {
-            fechaAproximada: new Date(req.body.fechaAproximada) || new Date(),
-            observaciones: req.body.observaciones,
-            cedulaEmpleadoResponsable: employeeId
-        };
-        
-        const clientData = {
-            cedula: req.body.cedula,
-            nombre: req.body.nombre,
-            tipo: req.body.tipoCliente,
-            correo: req.body.correo,
-            telefono: req.body.numeroCelular,
-            direccion: req.body.direccionEntrega,
-            idCiudad: req.body.idCiudad,
-            idDepartamento: req.body.idDepartamento,
-        };
-        
-        if (clientData.tipo === 'Natural') {
-            clientData.tipoDoc = req.body.tipoDocumento;
-            clientData.profesion = req.body.profesion;
+            
+            // Prepare order data
+            orderData = {
+                fechaAproximada: new Date(customerData.orderDate) || new Date(),
+                observaciones: customerData.observaciones || '',
+                cedulaEmpleadoResponsable: employeeId
+            };
+            
+            // Prepare client data
+            clientData = {
+                cedula: customerData.identification,
+                nombre: customerData.name,
+                tipo: customerData.type === 'natural' ? 'Natural' : 'Juridico',
+                correo: customerData.email,
+                telefono: customerData.phone,
+                direccion: customerData.address,
+                idCiudad: customerData.ciudadId,
+                idDepartamento: customerData.departamentoId,
+                departamento: customerData.departamento,  // Send department name
+                ciudad: customerData.ciudad,              // Send city name
+            };
+            
+            // Add client type specific data
+            if (clientData.tipo === 'Natural') {
+                clientData.tipoDoc = 'Cedula de Ciudadania';  // Default value
+                clientData.profesion = customerData.profession || '';
+            } else {
+                clientData.sectorEconomico = customerData.sector || '';
+            }
+            
+            // Transform products
+            products = productsData.map(product => ({
+                idProducto: product.id,
+                cantidad: product.quantity,
+                atributosUsuario: product.fields || {},
+                bordado: false,  // Default value
+                observacion: product.observaciones || '',
+                urlProducto: null
+            }));
+            
+            // Set payment info
+            paymentInfo = {
+                tipoPago: req.body.paymentType || 'credito'  // Default to credit
+            };
+            
         } else {
-            clientData.sectorEconomico = req.body.sectorEconomico;
+            // Process legacy format
+            if (!req.body.cedulaEmpleadoResponsable) {
+                return res.status(400).json({
+                    success: false,
+                    message: "El nombre del asesor es requerido"
+                });
+            }
+            
+            const employeeResult = await pool.query(
+                'SELECT cedula FROM empleado WHERE cedula = $1',
+                [req.body.cedulaEmpleadoResponsable]
+            );
+            
+            if (employeeResult.rows.length === 0) {
+                const employeeByNameResult = await pool.query(
+                    'SELECT cedula FROM empleado WHERE nombre ILIKE $1',
+                    [`%${req.body.nombreAsesor}%`]
+                );
+                
+                if (employeeByNameResult.rows.length === 0) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "No se encontró ningún empleado con el ID o nombre proporcionado"
+                    });
+                }
+                
+                employeeId = employeeByNameResult.rows[0].cedula;
+            } else {
+                employeeId = employeeResult.rows[0].cedula;
+            }
+            
+            orderData = {
+                fechaAproximada: new Date(req.body.fechaAproximada) || new Date(),
+                observaciones: req.body.observaciones,
+                cedulaEmpleadoResponsable: employeeId
+            };
+            
+            clientData = {
+                cedula: req.body.cedula,
+                nombre: req.body.nombre,
+                tipo: req.body.tipoCliente,
+                correo: req.body.correo,
+                telefono: req.body.numeroCelular,
+                direccion: req.body.direccionEntrega,
+                idCiudad: req.body.idCiudad,
+                idDepartamento: req.body.idDepartamento,
+            };
+            
+            if (clientData.tipo === 'Natural') {
+                clientData.tipoDoc = req.body.tipoDocumento;
+                clientData.profesion = req.body.profesion;
+            } else {
+                clientData.sectorEconomico = req.body.sectorEconomico;
+            }
+            
+            paymentInfo = {
+                tipoPago: req.body.tipoPago
+            };
+            
+            products = JSON.parse(req.body.productos || '[]');
         }
         
-        const paymentInfo = {
-            tipoPago: req.body.tipoPago
-        };
+        // Fetch department and city names if not provided
+        if (clientData.idDepartamento && !clientData.departamento) {
+            const deptResult = await pool.query(
+                'SELECT nombre FROM departamento WHERE id_departamento = $1',
+                [clientData.idDepartamento]
+            );
+            if (deptResult.rows.length > 0) {
+                clientData.departamento = deptResult.rows[0].nombre;
+            }
+        }
         
-        const products = JSON.parse(req.body.productos || '[]');
+        if (clientData.idCiudad && !clientData.ciudad) {
+            const cityResult = await pool.query(
+                'SELECT ciudad FROM ciudad WHERE id_ciudad = $1',
+                [clientData.idCiudad]
+            );
+            if (cityResult.rows.length > 0) {
+                clientData.ciudad = cityResult.rows[0].ciudad;
+            }
+        }
         
+        // Create the order with all the prepared data
         const result = await orderModel.createOrder(
             orderData,
             clientData,
