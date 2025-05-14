@@ -113,6 +113,10 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 observaciones: orderData.observaciones,
                 cedula_empleado_responsable: orderData.cedulaEmpleadoResponsable,
                 cliente_nombre: clientNameResult.rows[0]?.nombre || 'Cliente sin nombre',
+                departamento_id: clientData.idDepartamento,
+                departamento_nombre: clientData.departamento || '',
+                ciudad_id: clientData.idCiudad,
+                ciudad_nombre: clientData.ciudad || '',
                 productos: productDetails,
                 procesos: [{
                     id_detalle_proceso: processId,
@@ -204,6 +208,8 @@ async function createOrUpdateClient(client, clientData) {
     return clientData.cedula;
 }
 
+
+
 async function addClientPhone(client, clientId, phoneNumber, phoneType) {
     // Check if phone exists
     const checkPhone = await client.query(
@@ -232,10 +238,16 @@ async function addClientAddress(client, clientId, address, cityId, departmentId)
         }
     }
     
+    // Almacenar información de ubicación completa
+    const locationInfo = {
+        departamentoId: departmentId,
+        ciudadId: cityId
+    };
+    
     // Insert the address with department info in observations
     await client.query(
         'INSERT INTO direccion(id_cliente, direccion, id_ciudad, observaciones) VALUES($1, $2, $3, $4)',
-        [clientId, address, cityId, departmentId ? `Departamento ID: ${departmentId}` : null]
+        [clientId, address, cityId, departmentId ? JSON.stringify(locationInfo) : null]
     );
 }
 
@@ -290,15 +302,7 @@ async function createProductionOrder(client, clientId, dueDate, paymentType, com
     return result.rows[0].id_orden;
 }
 
-async function addProductToOrder(client, orderId, productId, quantity, userAttributes, hasBrodery, observations, productUrl) {
-    await client.query(
-        `INSERT INTO detalle_producto_orden(
-            id_orden, id_producto, cantidad, atributosUsuario, 
-            bordado, observacion, url_producto
-        ) VALUES($1, $2, $3, $4, $5, $6, $7)`,
-        [orderId, productId, quantity, userAttributes, hasBrodery, observations, productUrl]
-    );
-}
+
 
 module.exports = {
     createOrder
