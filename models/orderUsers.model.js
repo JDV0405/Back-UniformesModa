@@ -53,6 +53,7 @@ const getOrdersByClientId = async (clienteId) => {
  */
 const getOrderDetailsById = async (orderId) => {
   try {
+    // La consulta de la orden ya incluye correctamente los datos del departamento
     const orderQuery = await pool.query(
       `SELECT op.*, 
         c.nombre as cliente_nombre, 
@@ -111,9 +112,51 @@ const getOrderDetailsById = async (orderId) => {
       [orderId]
     );
     
+    // Obtener todos los colores disponibles con sus códigos hexadecimales
+    const colorsQuery = await pool.query(
+      `SELECT nombre_color, codigo_hex FROM color`
+    );
+    
+    // Crear un mapa de nombres de colores a códigos hexadecimales
+    const colorMap = {};
+    colorsQuery.rows.forEach(color => {
+      colorMap[color.nombre_color.toLowerCase()] = color.codigo_hex;
+    });
+    
+    // Enriquecer los productos con códigos de color
+    const productosConColores = productsQuery.rows.map(producto => {
+      // Crear una copia del producto para no modificar el original
+      const productoConColor = { ...producto };
+      
+      // Verificar si el producto tiene atributos de usuario y un color
+      if (productoConColor.atributosusuario && productoConColor.atributosusuario.color) {
+        const nombreColor = productoConColor.atributosusuario.color.toLowerCase();
+        
+        // Buscar el código hexadecimal exacto
+        if (colorMap[nombreColor]) {
+          productoConColor.color_hex = colorMap[nombreColor];
+        } else {
+          // Buscar el color por coincidencia parcial
+          const colorParcial = Object.keys(colorMap).find(color => 
+            nombreColor.includes(color.toLowerCase()) || color.toLowerCase().includes(nombreColor)
+          );
+          
+          if (colorParcial) {
+            productoConColor.color_hex = colorMap[colorParcial];
+          } else {
+            productoConColor.color_hex = null; // No se encontró un código de color
+          }
+        }
+      } else {
+        productoConColor.color_hex = null;
+      }
+      
+      return productoConColor;
+    });
+    
     return {
       ...order,
-      productos: productsQuery.rows,
+      productos: productosConColores,
       procesos: processesQuery.rows
     };
   } catch (error) {
