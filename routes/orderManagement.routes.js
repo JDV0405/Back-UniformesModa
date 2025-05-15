@@ -301,6 +301,13 @@ router.post('/orders/advance', OrderController.advanceOrder);
  */
 router.post('/orders/complete', OrderController.completeOrder);
 
+router.post('/orders/advance-partial', OrderController.advancePartialOrder);
+
+router.get('/orders/:idOrden/products', OrderController.getOrderProductDetails);
+
+router.get('/orders/:idOrden/process/:idProceso/products', OrderController.getProductsInProcess);
+router.get('/products/:idDetalle/history', OrderController.getProductMovementHistory);
+
 /**
  * @swagger
  * /orders/completed:

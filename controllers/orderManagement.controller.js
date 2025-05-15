@@ -256,7 +256,150 @@ const OrderController = {
       });
     }
   },
+
+  advancePartialOrder: async (req, res) => {
+    try {
+      const { 
+        idOrden, 
+        idProcesoActual, 
+        idProcesoSiguiente, 
+        itemsToAdvance, 
+        observaciones 
+      } = req.body;
+      
+      const cedulaEmpleadoActual = req.cedula; // From JWT token
+      
+      if (!idOrden || !idProcesoActual || !idProcesoSiguiente || !itemsToAdvance || !Array.isArray(itemsToAdvance) || itemsToAdvance.length === 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Datos incompletos o inválidos para avanzar parcialmente la orden' 
+        });
+      }
+      
+      // Validar estructura de cada item
+      for (const item of itemsToAdvance) {
+        if (!item.idDetalle || !item.cantidad || item.cantidad <= 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'Cada ítem debe tener un idDetalle y una cantidad válida mayor a cero'
+          });
+        }
+      }
+      
+      const result = await OrderModel.advancePartialOrderToNextProcess(
+        idOrden,
+        idProcesoActual,
+        idProcesoSiguiente,
+        cedulaEmpleadoActual,
+        itemsToAdvance,
+        observaciones || ''
+      );
+      
+      res.status(200).json({
+        success: true,
+        message: 'Items avanzados al siguiente proceso correctamente',
+        data: result
+      });
+      
+    } catch (error) {
+      console.error('Error al avanzar parcialmente orden:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error en el servidor', 
+        error: error.message 
+      });
+    }
+  },
+
+  // Get product details for an order
+  getOrderProductDetails: async (req, res) => {
+    try {
+      const { idOrden } = req.params;
+      
+      if (!idOrden) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'ID de orden es requerido' 
+        });
+      }
+      
+      const products = await OrderModel.getOrderProductDetails(idOrden);
+      
+      res.status(200).json({
+        success: true,
+        data: products
+      });
+      
+    } catch (error) {
+      console.error('Error al obtener detalles de productos:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error en el servidor', 
+        error: error.message 
+      });
+    }
+  },
+
+  getProductsInProcess: async (req, res) => {
+    try {
+      const { idOrden, idProceso } = req.params;
+      
+      if (!idOrden || !idProceso) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'ID de orden y proceso son requeridos' 
+        });
+      }
+      
+      const products = await OrderModel.getProductsInProcess(idOrden, idProceso);
+      
+      res.status(200).json({
+        success: true,
+        data: products
+      });
+      
+    } catch (error) {
+      console.error('Error al obtener productos en proceso:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error en el servidor', 
+        error: error.message 
+      });
+    }
+  },
+
+  getProductMovementHistory: async (req, res) => {
+    try {
+      const { idDetalle } = req.params;
+      
+      if (!idDetalle) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'ID del detalle de producto es requerido' 
+        });
+      }
+      
+      const history = await OrderModel.getProductMovementHistory(idDetalle);
+      
+      res.status(200).json({
+        success: true,
+        data: history
+      });
+      
+    } catch (error) {
+      console.error('Error al obtener historial de movimiento:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error en el servidor', 
+        error: error.message 
+      });
+    }
+  }
+
+
 };
+
+
 
 
 
