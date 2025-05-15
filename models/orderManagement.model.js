@@ -375,6 +375,37 @@ const OrderModel = {
     }
   },
 
+  getCompletedOrders: async () => {
+    try {
+      const query = `
+        SELECT 
+          op.id_orden as numero_orden, 
+          c.nombre as nombre_cliente,
+          MAX(dp.fecha_final_proceso) as fecha_finalizacion,
+          STRING_AGG(DISTINCT e.nombre || ' ' || e.apellidos, ', ') as empleados_involucrados
+        FROM orden_produccion op
+        JOIN detalle_proceso dp ON op.id_orden = dp.id_orden
+        JOIN cliente c ON op.id_cliente = c.id_cliente
+        JOIN empleado e ON dp.cedula_empleado = e.cedula
+        WHERE NOT EXISTS (
+          SELECT 1 FROM detalle_proceso dp2
+          WHERE dp2.id_orden = op.id_orden AND dp2.estado = 'En Proceso'
+        )
+        AND EXISTS (
+          SELECT 1 FROM detalle_producto_orden dpo
+          WHERE dpo.id_orden = op.id_orden AND dpo.estado = 'Finalizado'
+        )
+        GROUP BY op.id_orden, c.nombre
+        ORDER BY fecha_finalizacion DESC
+      `;
+      
+      const result = await pool.query(query);
+      return result.rows;
+    } catch (error) {
+      throw new Error(`Error al obtener órdenes completadas: ${error.message}`);
+    }
+  },
+
 };
 
 module.exports = {

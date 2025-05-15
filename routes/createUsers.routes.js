@@ -4,7 +4,7 @@ const usuarioController = require('../controllers/createUsers.controller.js');
 
 /**
  * @swagger
- * /usuarios:
+ * /api/usuarios:
  *   post:
  *     summary: Crea un nuevo usuario
  *     tags: [Usuarios]
@@ -15,7 +15,7 @@ const usuarioController = require('../controllers/createUsers.controller.js');
  *           schema:
  *             type: object
  *             properties:
- *               cedula_empleado:
+ *               cedula:
  *                 type: string
  *               nombre:
  *                 type: string
@@ -27,7 +27,7 @@ const usuarioController = require('../controllers/createUsers.controller.js');
  *                 type: string
  *               contrasena:
  *                 type: string
- *               email:
+ *               emailUsuario:
  *                 type: string
  *               id_rol:
  *                 type: string
