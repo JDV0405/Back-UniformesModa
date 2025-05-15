@@ -312,7 +312,7 @@ const OrderModel = {
   
   getOrderDetails: async (idOrden) => {
     try {
-      // Obtener información de la orden
+      // 1. Obtener información de la orden
       const queryOrden = `
         SELECT op.*, c.nombre as nombre_cliente
         FROM orden_produccion op
@@ -325,7 +325,7 @@ const OrderModel = {
         throw new Error('Orden no encontrada');
       }
       
-      // Obtener historial de procesos
+      // 2. Obtener historial de procesos
       const queryProcesos = `
         SELECT dp.*, ep.nombre as nombre_proceso, 
               e.nombre as nombre_empleado, e.apellidos as apellidos_empleado
@@ -337,9 +337,29 @@ const OrderModel = {
       `;
       const procesos = await pool.query(queryProcesos, [idOrden]);
       
+      // 3. Obtener los productos de la orden
+      const queryProductos = `
+        SELECT 
+          dpo.id_detalle,
+          p.id_producto,
+          p.nombre_producto,
+          dpo.cantidad,
+          dpo.bordado,
+          dpo.observacion,
+          dpo.url_producto,
+          dpo.estado as estado_producto,
+          dpo.atributosUsuario
+        FROM detalle_producto_orden dpo
+        JOIN producto p ON dpo.id_producto = p.id_producto
+        WHERE dpo.id_orden = $1
+      `;
+      const productos = await pool.query(queryProductos, [idOrden]);
+      
+      // 4. Devolver todo en un objeto estructurado
       return {
         orden: orden.rows[0],
-        procesos: procesos.rows
+        procesos: procesos.rows,
+        productos: productos.rows
       };
     } catch (error) {
       throw new Error(`Error al obtener detalles de la orden: ${error.message}`);
