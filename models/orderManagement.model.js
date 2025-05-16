@@ -92,34 +92,6 @@ const OrderModel = {
     return OrderModel.getOrdersByProcess(idProceso);
   },
 
-  getOrdersByProcess: async (idProceso) => {
-    try {
-      const query = `
-        SELECT 
-          op.id_orden as numero_orden, 
-          c.nombre as nombre_cliente,
-          ep.nombre as nombre_proceso,
-          dp.fecha_inicio_proceso,
-          dp.estado as estado_proceso, 
-          dp.observaciones,
-          dp.fecha_final_proceso
-        FROM orden_produccion op
-        JOIN detalle_proceso dp ON op.id_orden = dp.id_orden
-        JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
-        JOIN cliente c ON op.id_cliente = c.id_cliente
-        WHERE dp.id_proceso = $1 
-          AND dp.estado = 'En Proceso'
-        ORDER BY dp.fecha_inicio_proceso ASC
-      `;
-      const result = await pool.query(query, [idProceso]);
-      return result.rows;
-    } catch (error) {
-      throw new Error(`Error al obtener órdenes por proceso: ${error.message}`);
-    }
-  },
-
-  // ...existing code...
-
   // Add this function to the OrderModel object
   advancePartialOrderToNextProcess: async (idOrden, idProcesoActual, idProcesoSiguiente, cedulaEmpleadoActual, itemsToAdvance, observaciones = '') => {
     try {
@@ -147,6 +119,7 @@ const OrderModel = {
         SELECT id_detalle_proceso, observaciones
         FROM detalle_proceso
         WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'
+        LIMIT 1
       `;
       const detalleProcesoActual = await pool.query(queryDetalleProcesoActual, [idOrden, idProcesoActual]);
       
@@ -156,8 +129,61 @@ const OrderModel = {
       
       const { id_detalle_proceso: idDetalleProcesoActual, observaciones: observacionesAnteriores } = detalleProcesoActual.rows[0];
 
+      // MODIFICADO: Manejo especial para el primer proceso (Solicitud)
+      let mapaProductosActuales = {};
+      
+      if (idProcesoActual === 1) {
+        // Si es el primer proceso (Solicitud), obtenemos cantidades de detalle_producto_orden
+        // y las cantidades ya avanzadas a otros procesos
+        const queryProductosDisponibles = `
+          SELECT dpo.id_detalle, dpo.cantidad as cantidad_total,
+                COALESCE(SUM(pp.cantidad), 0) as cantidad_ya_avanzada
+          FROM detalle_producto_orden dpo
+          LEFT JOIN producto_proceso pp ON dpo.id_detalle = pp.id_detalle_producto
+          WHERE dpo.id_orden = $1 
+            AND dpo.id_detalle IN (${itemsToAdvance.map((_, i) => `$${i + 2}`).join(',')})
+          GROUP BY dpo.id_detalle, dpo.cantidad
+        `;
+        
+        const productosDisponibles = await pool.query(
+          queryProductosDisponibles,
+          [idOrden, ...itemsToAdvance.map(item => item.idDetalle)]
+        );
+        
+        productosDisponibles.rows.forEach(row => {
+          // La cantidad disponible es la cantidad total menos lo ya avanzado
+          mapaProductosActuales[row.id_detalle] = parseInt(row.cantidad_total) - parseInt(row.cantidad_ya_avanzada);
+        });
+      } else {
+        // Para otros procesos, usar la consulta normal de producto_proceso
+        const queryProductosProcesoActual = `
+          SELECT pp.id_detalle_producto, SUM(pp.cantidad) as cantidad_actual
+          FROM producto_proceso pp
+          JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+          WHERE dp.id_orden = $1 AND dp.id_proceso = $2 AND dp.estado = 'En Proceso'
+          GROUP BY pp.id_detalle_producto
+        `;
+        
+        const productosActuales = await pool.query(
+          queryProductosProcesoActual, 
+          [idOrden, idProcesoActual]
+        );
+        
+        productosActuales.rows.forEach(row => {
+          mapaProductosActuales[row.id_detalle_producto] = parseInt(row.cantidad_actual);
+        });
+      }
+
+      // Validar que las cantidades a avanzar no excedan las disponibles
+      for (const item of itemsToAdvance) {
+        const cantidadDisponible = mapaProductosActuales[item.idDetalle] || 0;
+        if (item.cantidad > cantidadDisponible) {
+          throw new Error(`No hay suficientes unidades del producto ID:${item.idDetalle} en el proceso actual. Disponible: ${cantidadDisponible}, Solicitado: ${item.cantidad}`);
+        }
+      }
+
       // 3. Preparar las observaciones para el nuevo proceso
-      let observacionesNuevoProceso = observacionesAnteriores || '';
+      let observacionesNuevoProceso = '';
       
       if (observaciones && observaciones.length > 0) {
         const nombreProcesoActualQuery = `SELECT nombre FROM estado_proceso WHERE id_proceso = $1`;
@@ -168,9 +194,7 @@ const OrderModel = {
         const productosAvanzados = itemsToAdvance.map(item => `ID:${item.idDetalle}(${item.cantidad})`).join(', ');
         const nuevaObservacion = `[${fechaActual} - ${nombreProcesoActual}]: Avance parcial - Productos: ${productosAvanzados}. ${observaciones}`;
         
-        observacionesNuevoProceso = observacionesNuevoProceso 
-          ? `${observacionesNuevoProceso}\n${nuevaObservacion}`
-          : nuevaObservacion;
+        observacionesNuevoProceso = nuevaObservacion;
       }
 
       // 4. Buscar si ya existe un registro de proceso para el siguiente paso
@@ -187,19 +211,21 @@ const OrderModel = {
         // Si ya existe un registro para el proceso siguiente, utilizamos ese
         idDetalleProcesoSiguiente = procesoSiguienteExistente.rows[0].id_detalle_proceso;
         
-        // Actualizar las observaciones del proceso existente
-        const updateObservacionesProcesoExistente = `
-          UPDATE detalle_proceso
-          SET observaciones = CASE 
-                WHEN observaciones IS NULL OR observaciones = '' THEN $2
-                ELSE observaciones || E'\n' || $2
-              END
-          WHERE id_detalle_proceso = $1
-        `;
-        await pool.query(updateObservacionesProcesoExistente, [
-          idDetalleProcesoSiguiente, 
-          observacionesNuevoProceso
-        ]);
+        // Actualizar las observaciones del proceso existente si hay nuevas
+        if (observacionesNuevoProceso) {
+          const updateObservacionesProcesoExistente = `
+            UPDATE detalle_proceso
+            SET observaciones = CASE 
+                  WHEN observaciones IS NULL OR observaciones = '' THEN $2
+                  ELSE observaciones || E'\n' || $2
+                END
+            WHERE id_detalle_proceso = $1
+          `;
+          await pool.query(updateObservacionesProcesoExistente, [
+            idDetalleProcesoSiguiente, 
+            observacionesNuevoProceso
+          ]);
+        }
       } else {
         // Si no existe, creamos un nuevo registro para el proceso siguiente
         const insertNuevoProcesoSiguiente = `
@@ -219,7 +245,7 @@ const OrderModel = {
 
       // 5. Actualizamos cada producto individual para marcar su avance
       for (const item of itemsToAdvance) {
-      // Crear registro que vincule el producto con el proceso siguiente
+        // Crear registro que vincule el producto con el proceso siguiente
         const updateProductoProceso = `
           INSERT INTO producto_proceso (id_detalle_producto, id_detalle_proceso, cantidad)
           VALUES ($1, $2, $3)
@@ -230,6 +256,50 @@ const OrderModel = {
           idDetalleProcesoSiguiente,
           item.cantidad
         ]);
+
+        // Solo actualizamos/eliminamos en producto_proceso si no es el primer proceso
+        // o si ya existe un registro en producto_proceso para este detalle
+        if (idProcesoActual !== 1 || mapaProductosActuales[item.idDetalle] > 0) {
+          // Verificar si existe un registro en producto_proceso para este producto en el proceso actual
+          const checkProductoProcesoActual = `
+            SELECT COUNT(*) as count 
+            FROM producto_proceso 
+            WHERE id_detalle_producto = $1 AND id_detalle_proceso = $2
+          `;
+          
+          const checkResult = await pool.query(checkProductoProcesoActual, [
+            item.idDetalle, 
+            idDetalleProcesoActual
+          ]);
+          
+          const existsInProductoProceso = parseInt(checkResult.rows[0].count) > 0;
+          
+          if (existsInProductoProceso) {
+            // Si estamos avanzando todo lo que hay, eliminar el registro
+            if (mapaProductosActuales[item.idDetalle] === item.cantidad) {
+              const deleteProductoProcesoActual = `
+                DELETE FROM producto_proceso 
+                WHERE id_detalle_producto = $1
+                AND id_detalle_proceso = $2
+              `;
+              await pool.query(deleteProductoProcesoActual, [item.idDetalle, idDetalleProcesoActual]);
+            } 
+            // Si estamos avanzando solo una parte, actualizamos la cantidad
+            else {
+              const updateProductoProcesoActual = `
+                UPDATE producto_proceso 
+                SET cantidad = cantidad - $1
+                WHERE id_detalle_producto = $2
+                AND id_detalle_proceso = $3
+              `;
+              await pool.query(updateProductoProcesoActual, [
+                item.cantidad, 
+                item.idDetalle, 
+                idDetalleProcesoActual
+              ]);
+            }
+          }
+        }
         
         // Actualizar el estado del producto si todos sus items fueron avanzados
         const queryTotalProducto = `
@@ -241,8 +311,9 @@ const OrderModel = {
         // Obtener cantidad total ya avanzada para este producto
         const queryAvanzado = `
           SELECT COALESCE(SUM(cantidad), 0) as cantidad_avanzada
-          FROM producto_proceso
-          WHERE id_detalle_producto = $1
+          FROM producto_proceso pp
+          JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+          WHERE pp.id_detalle_producto = $1
         `;
         const avanzadoResult = await pool.query(queryAvanzado, [item.idDetalle]);
         const cantidadAvanzada = parseInt(avanzadoResult.rows[0]?.cantidad_avanzada || 0);
@@ -362,242 +433,6 @@ const OrderModel = {
       return result.rows;
     } catch (error) {
       throw new Error(`Error al obtener detalles de productos de la orden: ${error.message}`);
-    }
-  },
-
-  advancePartialOrderToNextProcess: async (idOrden, idProcesoActual, idProcesoSiguiente, cedulaEmpleadoActual, itemsToAdvance, observaciones = '') => {
-    try {
-      // Iniciar transacción
-      await pool.query('BEGIN');
-
-      // 1. Validar que los productos existen en la orden y están en el proceso actual
-      const queryValidateProducts = `
-        WITH productos_en_proceso_actual AS (
-          SELECT 
-            dpo.id_detalle,
-            dpo.cantidad,
-            COALESCE(
-              (SELECT SUM(pp.cantidad) 
-              FROM producto_proceso pp
-              JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
-              WHERE pp.id_detalle_producto = dpo.id_detalle 
-              AND dp.id_proceso = $2
-              AND dp.estado = 'En Proceso'), 0
-            ) as cantidad_en_proceso_actual
-          FROM detalle_producto_orden dpo
-          WHERE dpo.id_orden = $1
-        )
-        SELECT 
-          id_detalle, 
-          cantidad, 
-          cantidad_en_proceso_actual,
-          (cantidad - cantidad_en_proceso_actual) as disponible_para_avanzar
-        FROM productos_en_proceso_actual
-        WHERE id_detalle IN (${itemsToAdvance.map((_, i) => `$${i + 3}`).join(',')})
-      `;
-      
-      const validProducts = await pool.query(
-        queryValidateProducts, 
-        [idOrden, idProcesoActual, ...itemsToAdvance.map(item => item.idDetalle)]
-      );
-      
-      if (validProducts.rows.length !== itemsToAdvance.length) {
-        throw new Error('Algunos productos seleccionados no existen en esta orden');
-      }
-
-      // Validar que tenemos suficiente cantidad disponible para avanzar
-      for (const item of itemsToAdvance) {
-        const producto = validProducts.rows.find(p => p.id_detalle == item.idDetalle);
-        if (!producto) {
-          throw new Error(`Producto con ID ${item.idDetalle} no encontrado en la orden`);
-        }
-        
-        if (item.cantidad > producto.disponible_para_avanzar) {
-          throw new Error(`No hay suficiente cantidad disponible para avanzar el producto ${item.idDetalle}. Solicitado: ${item.cantidad}, Disponible: ${producto.disponible_para_avanzar}`);
-        }
-      }
-
-      // 2. Obtener el detalle de proceso actual
-      const queryDetalleProcesoActual = `
-        SELECT id_detalle_proceso, observaciones
-        FROM detalle_proceso
-        WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'
-      `;
-      const detalleProcesoActual = await pool.query(queryDetalleProcesoActual, [idOrden, idProcesoActual]);
-      
-      if (detalleProcesoActual.rows.length === 0) {
-        throw new Error('No existe un proceso activo para esta orden en la etapa indicada');
-      }
-      
-      const { id_detalle_proceso: idDetalleProcesoActual, observaciones: observacionesAnteriores } = detalleProcesoActual.rows[0];
-
-      // 3. Preparar las observaciones para el nuevo proceso
-      let observacionesNuevoProceso = '';
-      
-      if (observaciones && observaciones.length > 0) {
-        const nombreProcesoActualQuery = `SELECT nombre FROM estado_proceso WHERE id_proceso = $1`;
-        const nombreProcesoResult = await pool.query(nombreProcesoActualQuery, [idProcesoActual]);
-        const nombreProcesoActual = nombreProcesoResult.rows[0]?.nombre || 'Proceso anterior';
-        
-        const fechaActual = new Date().toLocaleString();
-        const productosAvanzados = itemsToAdvance.map(item => `ID:${item.idDetalle}(${item.cantidad})`).join(', ');
-        const nuevaObservacion = `[${fechaActual} - ${nombreProcesoActual}]: Avance parcial - Productos: ${productosAvanzados}. ${observaciones}`;
-        
-        observacionesNuevoProceso = nuevaObservacion;
-      }
-
-      // 4. Buscar si ya existe un registro de proceso para el siguiente paso
-      const queryBuscarProcesoSiguiente = `
-        SELECT id_detalle_proceso, observaciones
-        FROM detalle_proceso
-        WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'
-      `;
-      const procesoSiguienteExistente = await pool.query(queryBuscarProcesoSiguiente, [idOrden, idProcesoSiguiente]);
-      
-      let idDetalleProcesoSiguiente;
-      
-      if (procesoSiguienteExistente.rows.length > 0) {
-        // Si ya existe un registro para el proceso siguiente, utilizamos ese
-        idDetalleProcesoSiguiente = procesoSiguienteExistente.rows[0].id_detalle_proceso;
-        
-        // Actualizar las observaciones del proceso existente
-        if (observacionesNuevoProceso) {
-          const updateObservacionesProcesoExistente = `
-            UPDATE detalle_proceso
-            SET observaciones = CASE 
-                  WHEN observaciones IS NULL OR observaciones = '' THEN $2
-                  ELSE observaciones || E'\n' || $2
-                END
-            WHERE id_detalle_proceso = $1
-          `;
-          await pool.query(updateObservacionesProcesoExistente, [
-            idDetalleProcesoSiguiente, 
-            observacionesNuevoProceso
-          ]);
-        }
-      } else {
-        // Si no existe, creamos un nuevo registro para el proceso siguiente
-        const insertNuevoProcesoSiguiente = `
-          INSERT INTO detalle_proceso (id_orden, id_proceso, cedula_empleado, fecha_inicio_proceso, observaciones)
-          VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4)
-          RETURNING id_detalle_proceso
-        `;
-        const nuevoProcesoResult = await pool.query(insertNuevoProcesoSiguiente, [
-          idOrden, 
-          idProcesoSiguiente, 
-          cedulaEmpleadoActual,
-          observacionesNuevoProceso
-        ]);
-        
-        idDetalleProcesoSiguiente = nuevoProcesoResult.rows[0].id_detalle_proceso;
-      }
-
-      // 5. Avanzar cada producto eliminándolo del proceso actual y agregándolo al siguiente
-      for (const item of itemsToAdvance) {
-        // Registrar el producto en el nuevo proceso
-        const insertProductoProcesoSiguiente = `
-          INSERT INTO producto_proceso (id_detalle_producto, id_detalle_proceso, cantidad)
-          VALUES ($1, $2, $3)
-          RETURNING *
-        `;
-        await pool.query(insertProductoProcesoSiguiente, [
-          item.idDetalle,
-          idDetalleProcesoSiguiente,
-          item.cantidad
-        ]);
-        
-        // Actualizar el estado del producto según la cantidad total y avanzada
-        const queryTotalProducto = `
-          SELECT cantidad FROM detalle_producto_orden WHERE id_detalle = $1
-        `;
-        const totalProductoResult = await pool.query(queryTotalProducto, [item.idDetalle]);
-        const cantidadTotal = parseInt(totalProductoResult.rows[0]?.cantidad || 0);
-        
-        // Obtener la cantidad total avanzada a cualquier proceso posterior al actual
-        const queryTotalAvanzado = `
-          SELECT COALESCE(SUM(pp.cantidad), 0) as total_avanzado
-          FROM producto_proceso pp
-          JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
-          WHERE pp.id_detalle_producto = $1
-          AND dp.id_proceso > $2
-        `;
-        const totalAvanzadoResult = await pool.query(queryTotalAvanzado, [item.idDetalle, idProcesoActual]);
-        const cantidadTotalAvanzada = parseInt(totalAvanzadoResult.rows[0]?.total_avanzado || 0);
-        
-        // Actualizar el estado del producto según la cantidad avanzada
-        let nuevoEstado;
-        if (cantidadTotalAvanzada >= cantidadTotal) {
-          nuevoEstado = 'En Siguiente Proceso';
-        } else if (cantidadTotalAvanzada > 0) {
-          nuevoEstado = 'Parcialmente Avanzado';
-        } else {
-          nuevoEstado = 'En Producción';
-        }
-        
-        const updateEstadoProducto = `
-          UPDATE detalle_producto_orden
-          SET estado = $2
-          WHERE id_detalle = $1
-        `;
-        await pool.query(updateEstadoProducto, [item.idDetalle, nuevoEstado]);
-      }
-
-      // 6. Verificar si todos los productos han sido completamente avanzados del proceso actual
-      const queryProductosPendientes = `
-        WITH productos_orden AS (
-          SELECT 
-            dpo.id_detalle,
-            dpo.cantidad as cantidad_total
-          FROM detalle_producto_orden dpo
-          WHERE dpo.id_orden = $1
-        ),
-        productos_avanzados AS (
-          SELECT 
-            pp.id_detalle_producto,
-            SUM(pp.cantidad) as cantidad_avanzada
-          FROM producto_proceso pp
-          JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
-          WHERE dp.id_orden = $1 AND dp.id_proceso > $2
-          GROUP BY pp.id_detalle_producto
-        )
-        SELECT COUNT(*) as pendientes
-        FROM productos_orden po
-        LEFT JOIN productos_avanzados pa ON po.id_detalle = pa.id_detalle_producto
-        WHERE COALESCE(pa.cantidad_avanzada, 0) < po.cantidad_total
-      `;
-      
-      const pendientesResult = await pool.query(queryProductosPendientes, [idOrden, idProcesoActual]);
-      const productosPendientes = parseInt(pendientesResult.rows[0].pendientes);
-      
-      // Si no quedan productos pendientes, marcar el proceso actual como completado
-      if (productosPendientes === 0) {
-        const completarProcesoActual = `
-          UPDATE detalle_proceso
-          SET estado = 'Completado',
-              fecha_final_proceso = CURRENT_TIMESTAMP,
-              observaciones = CASE 
-                WHEN observaciones IS NULL OR observaciones = '' THEN $3
-                ELSE observaciones || E'\n' || $3
-              END
-          WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'
-        `;
-        
-        const mensajeCompletado = `[${new Date().toLocaleString()}] Proceso completado automáticamente: todos los productos han sido avanzados al siguiente proceso.`;
-        await pool.query(completarProcesoActual, [idOrden, idProcesoActual, mensajeCompletado]);
-      }
-
-      // Confirmar transacción
-      await pool.query('COMMIT');
-      
-      return {
-        idDetalleProcesoSiguiente,
-        itemsAdvanced: itemsToAdvance.length,
-        success: true
-      };
-    } catch (error) {
-      // Revertir transacción en caso de error
-      await pool.query('ROLLBACK');
-      throw new Error(`Error al avanzar parcialmente la orden: ${error.message}`);
     }
   },
 
