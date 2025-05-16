@@ -194,61 +194,6 @@ router.get('/orders/all', OrderController.getAllOrders);
 
 /**
  * @swagger
- * /orders/advance:
- *   post:
- *     summary: Avanza una orden al siguiente proceso
- *     tags: [Órdenes]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               idDetalleProcesoActual:
- *                 type: string
- *                 description: ID de la orden a avanzar
- *               idProcesoSiguiente:
- *                 type: string
- *                 description: ID del siguiente proceso
- *               comentario:
- *                 type: string
- *                 description: Comentario opcional sobre el avance
- *             required:
- *               - idDetalleOrden
- *               - idProcesoSiguiente
- *     responses:
- *       200:
- *         description: Orden avanzada exitosamente
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 mensaje:
- *                   type: string
- *                 nuevoProceso:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                     nombre:
- *                       type: string
- *       400:
- *         description: Error en los datos proporcionados
- *       401:
- *         description: No autorizado - Token inválido o expirado
- *       403:
- *         description: Prohibido - No tiene permisos para avanzar esta orden
- *       500:
- *         description: Error interno del servidor
- */
-router.post('/orders/advance', OrderController.advanceOrder);
-
-/**
- * @swagger
  * /orders/complete:
  *   post:
  *     summary: Completa una orden y cambia su estado a finalizado
@@ -301,11 +246,10 @@ router.post('/orders/advance', OrderController.advanceOrder);
  */
 router.post('/orders/complete', OrderController.completeOrder);
 
-router.post('/orders/advance-partial', OrderController.advancePartialOrder);
-
 router.get('/orders/:idOrden/products', OrderController.getOrderProductDetails);
 
 router.get('/orders/:idOrden/process/:idProceso/products', OrderController.getProductsInProcess);
+
 router.get('/products/:idDetalle/history', OrderController.getProductMovementHistory);
 
 /**

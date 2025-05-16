@@ -14,10 +14,8 @@ module.exports = (req, res, next) => {
       });
     }
     
-    // Extraer el token
     const token = authHeader.split(' ')[1];
     
-    // Verificar el token
     const decoded = jwt.verify(token, JWT_SECRET);
     
     // Agregar datos del usuario al objeto request

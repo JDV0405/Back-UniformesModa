@@ -40,6 +40,7 @@ const UserController = {
           token,
           usuario: {
             id: user.id_usuario,
+            cedula: user.cedula,
             nombre: `${user.nombre} ${user.apellidos}`,
             email: user.email,
             rol: {
@@ -123,44 +124,6 @@ const OrderController = {
       });
     }
   },
-  
-  // Avanzar una orden al siguiente proceso
-  advanceOrder: async (req, res) => {
-    try {
-      const { idDetalleProcesoActual, idProcesoSiguiente, cedulaEmpleadoSiguiente, observaciones } = req.body;
-      const cedulaEmpleadoActual = req.cedula; // Obtenemos la cédula del empleado actual del token JWT
-      
-      if (!idDetalleProcesoActual || !idProcesoSiguiente) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'El detalle del proceso actual y el ID del proceso siguiente son obligatorios' 
-        });
-      }
-      
-      // Ahora pasamos la cédula del empleado actual que está avanzando la orden
-      const result = await OrderModel.advanceOrderToNextProcess(
-        idDetalleProcesoActual,
-        idProcesoSiguiente,
-        cedulaEmpleadoActual,           // Empleado que está avanzando la orden
-        cedulaEmpleadoSiguiente || null, // Empleado asignado al siguiente proceso (opcional)
-        observaciones || ''
-      );
-      
-      res.status(200).json({
-        success: true,
-        message: 'Orden avanzada al siguiente proceso correctamente',
-        data: result
-      });
-      
-    } catch (error) {
-      console.error('Error al avanzar orden:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Error en el servidor', 
-        error: error.message 
-      });
-    }
-  },
 
   completeOrder: async (req, res) => {
     try {
@@ -196,7 +159,6 @@ const OrderController = {
     }
   },
   
-  // Obtener detalles de una orden
   getOrderDetails: async (req, res) => {
     try {
       const { idOrden } = req.params;
@@ -257,61 +219,6 @@ const OrderController = {
     }
   },
 
-  advancePartialOrder: async (req, res) => {
-    try {
-      const { 
-        idOrden, 
-        idProcesoActual, 
-        idProcesoSiguiente, 
-        itemsToAdvance, 
-        observaciones 
-      } = req.body;
-      
-      const cedulaEmpleadoActual = req.cedula; // From JWT token
-      
-      if (!idOrden || !idProcesoActual || !idProcesoSiguiente || !itemsToAdvance || !Array.isArray(itemsToAdvance) || itemsToAdvance.length === 0) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Datos incompletos o inválidos para avanzar parcialmente la orden' 
-        });
-      }
-      
-      // Validar estructura de cada item
-      for (const item of itemsToAdvance) {
-        if (!item.idDetalle || !item.cantidad || item.cantidad <= 0) {
-          return res.status(400).json({
-            success: false,
-            message: 'Cada ítem debe tener un idDetalle y una cantidad válida mayor a cero'
-          });
-        }
-      }
-      
-      const result = await OrderModel.advancePartialOrderToNextProcess(
-        idOrden,
-        idProcesoActual,
-        idProcesoSiguiente,
-        cedulaEmpleadoActual,
-        itemsToAdvance,
-        observaciones || ''
-      );
-      
-      res.status(200).json({
-        success: true,
-        message: 'Items avanzados al siguiente proceso correctamente',
-        data: result
-      });
-      
-    } catch (error) {
-      console.error('Error al avanzar parcialmente orden:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Error en el servidor', 
-        error: error.message 
-      });
-    }
-  },
-
-  // Get product details for an order
   getOrderProductDetails: async (req, res) => {
     try {
       const { idOrden } = req.params;

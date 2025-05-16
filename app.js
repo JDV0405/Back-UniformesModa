@@ -6,6 +6,7 @@ const orderRoutes = require('./routes/orderUsers.routes.js');
 const orderManagementRoutes = require('./routes/orderManagement.routes.js');
 const createOrder = require('./routes/createorderProduction.routes.js');
 const productRoutes = require('./routes/getProducts.routes');
+const advanceOrderRoutes = require('./routes/advanceOrder.routes.js');
 
 // Swagger
 const swaggerUi = require('swagger-ui-express');
@@ -29,6 +30,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/create', createOrder);
 app.use('/api/orderManagement', orderManagementRoutes);
 app.use('/api', productRoutes);
+app.use('/api/produccion', advanceOrderRoutes);
 
 
 // Use routes
