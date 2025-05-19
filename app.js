@@ -29,6 +29,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/create', createOrder);
 app.use('/api/orderManagement', orderManagementRoutes);
 app.use('/api', productRoutes);
+app.use('/api/advance', require('./routes/advanceProcess.routes.js'));
 
 
 // Use routes

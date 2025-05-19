@@ -260,9 +260,9 @@ const OrderModel = {
         // Solo actualizamos/eliminamos en producto_proceso si no es el primer proceso
         // o si ya existe un registro en producto_proceso para este detalle
         if (idProcesoActual !== 1 || mapaProductosActuales[item.idDetalle] > 0) {
-          // Verificar si existe un registro en producto_proceso para este producto en el proceso actual
+          // CAMBIO PRINCIPAL: Obtener específicamente el registro de producto_proceso para este producto
           const checkProductoProcesoActual = `
-            SELECT COUNT(*) as count 
+            SELECT id_producto_proceso, cantidad 
             FROM producto_proceso 
             WHERE id_detalle_producto = $1 AND id_detalle_proceso = $2
           `;
@@ -272,30 +272,27 @@ const OrderModel = {
             idDetalleProcesoActual
           ]);
           
-          const existsInProductoProceso = parseInt(checkResult.rows[0].count) > 0;
-          
-          if (existsInProductoProceso) {
-            // Si estamos avanzando todo lo que hay, eliminar el registro
-            if (mapaProductosActuales[item.idDetalle] === item.cantidad) {
+          // Si existe un registro específico para este producto
+          if (checkResult.rows.length > 0) {
+            const productoProcesoActual = checkResult.rows[0];
+            
+            // Si estamos avanzando todo lo que hay, eliminar solo este registro específico
+            if (parseInt(productoProcesoActual.cantidad) === item.cantidad) {
               const deleteProductoProcesoActual = `
                 DELETE FROM producto_proceso 
-                WHERE id_detalle_producto = $1
-                AND id_detalle_proceso = $2
+                WHERE id_producto_proceso = $1
               `;
-              await pool.query(deleteProductoProcesoActual, [item.idDetalle, idDetalleProcesoActual]);
-            } 
-            // Si estamos avanzando solo una parte, actualizamos la cantidad
-            else {
+              await pool.query(deleteProductoProcesoActual, [productoProcesoActual.id_producto_proceso]);
+            } else {
+              // Si estamos avanzando solo una parte, actualizamos la cantidad solo de este registro
               const updateProductoProcesoActual = `
                 UPDATE producto_proceso 
                 SET cantidad = cantidad - $1
-                WHERE id_detalle_producto = $2
-                AND id_detalle_proceso = $3
+                WHERE id_producto_proceso = $2
               `;
               await pool.query(updateProductoProcesoActual, [
                 item.cantidad, 
-                item.idDetalle, 
-                idDetalleProcesoActual
+                productoProcesoActual.id_producto_proceso
               ]);
             }
           }
