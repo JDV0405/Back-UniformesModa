@@ -27,6 +27,31 @@ class AdvanceOrderController {
     }
   }
 
+  async getOrdersByProcess(req, res) {
+    try {
+      const { idProceso } = req.params;
+      
+      if (!idProceso) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Se requiere el ID del proceso' 
+        });
+      }
+      
+      const ordenes = await AdvanceOrderModel.getOrdersByProcess(idProceso);
+      return res.status(200).json({
+        success: true,
+        data: ordenes,
+        message: 'Órdenes obtenidas correctamente'
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al obtener órdenes: ${error.message}`
+      });
+    }
+  }
+
  // Obtiene los productos que están actualmente en un proceso específico
   async getProductsInProcess(req, res) {
     try {

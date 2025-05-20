@@ -170,6 +170,93 @@ class AdvanceOrderModel {
         throw error;
       }
   }
+
+  async getOrdersByProcess(idProceso) {
+    try {
+      const query = `
+        WITH order_info AS (
+          SELECT 
+            op.id_orden,
+            op.id_cliente,
+            c.nombre AS nombre_cliente,
+            ep.nombre AS nombre_proceso,
+            dp.id_detalle_proceso,
+            dp.fecha_inicio_proceso,
+            dp.estado AS estado_proceso,
+            dp.observaciones,
+            dp.fecha_final_proceso,
+            e.nombre AS nombre_empleado,
+            e.apellidos AS apellidos_empleado
+          FROM orden_produccion op
+          JOIN detalle_proceso dp ON op.id_orden = dp.id_orden
+          JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+          JOIN cliente c ON op.id_cliente = c.id_cliente
+          JOIN empleado e ON dp.cedula_empleado = e.cedula
+          WHERE dp.id_proceso = $1
+        )
+        SELECT 
+          oi.*,
+          dpo.id_detalle,
+          dpo.id_producto,
+          p.nombre_producto,
+          dpo.cantidad,
+          dpo.estado AS estado_producto,
+          pp.id_producto_proceso
+        FROM order_info oi
+        LEFT JOIN detalle_producto_orden dpo ON oi.id_orden = dpo.id_orden
+        LEFT JOIN producto p ON dpo.id_producto = p.id_producto
+        LEFT JOIN producto_proceso pp ON dpo.id_detalle = pp.id_detalle_producto AND pp.id_detalle_proceso = oi.id_detalle_proceso
+        ORDER BY oi.id_orden, dpo.id_detalle
+      `;
+      
+      const result = await db.query(query, [idProceso]);
+      
+      // Procesamos el resultado para agrupar los productos por orden
+      const orderMap = new Map();
+      
+      for (const row of result.rows) {
+        const orderId = row.id_orden;
+        
+        if (!orderMap.has(orderId)) {
+          // Creamos una nueva entrada para esta orden
+          const orderInfo = {
+            id_orden: row.id_orden,
+            id_cliente: row.id_cliente,
+            nombre_cliente: row.nombre_cliente,
+            nombre_proceso: row.nombre_proceso,
+            id_detalle_proceso: row.id_detalle_proceso,
+            fecha_inicio_proceso: row.fecha_inicio_proceso,
+            estado_proceso: row.estado_proceso,
+            observaciones: row.observaciones,
+            fecha_final_proceso: row.fecha_final_proceso,
+            nombre_empleado: row.nombre_empleado,
+            apellidos_empleado: row.apellidos_empleado,
+            productos: []
+          };
+          
+          orderMap.set(orderId, orderInfo);
+        }
+        
+        // Si hay un producto (id_detalle no es null), lo añadimos a la lista de productos de la orden
+        if (row.id_detalle) {
+          const orderInfo = orderMap.get(orderId);
+          orderInfo.productos.push({
+            id_detalle: row.id_detalle,
+            id_producto: row.id_producto,
+            nombre_producto: row.nombre_producto,
+            cantidad: row.cantidad,
+            estado: row.estado_producto,
+            id_producto_proceso: row.id_producto_proceso
+          });
+        }
+      }
+      
+      // Convertimos el Map a un array para retornarlo
+      return Array.from(orderMap.values());
+    } catch (error) {
+      throw new Error(`Error al obtener las órdenes por proceso: ${error.message}`);
+    }
+  }
 }
 
 module.exports = new AdvanceOrderModel();
