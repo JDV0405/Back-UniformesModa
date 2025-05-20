@@ -55,61 +55,61 @@ class AdvanceOrderController {
 
  //Avanza productos al siguiente proceso
   async advanceProducts(req, res) {
-    try {
-      const { 
-        idOrden, 
-        idProcesoActual, 
-        idProcesoSiguiente, 
-        cedulaEmpleadoActual,
-        itemsToAdvance,
-        observaciones 
-      } = req.body;
-      
-      // Validaciones
-      if (!idOrden || !idProcesoActual || !idProcesoSiguiente || !cedulaEmpleadoActual || !itemsToAdvance || !itemsToAdvance.length) {
-        return res.status(400).json({
-          success: false,
-          message: 'Faltan datos requeridos. Se necesita ID de orden, proceso actual, proceso siguiente, cédula del empleado y productos a avanzar'
-        });
-      }
-      
-      // Validar que los procesos sean diferentes
-      if (parseInt(idProcesoActual) === parseInt(idProcesoSiguiente)) {
-        return res.status(400).json({
-          success: false,
-          message: 'El proceso actual y el siguiente no pueden ser iguales'
-        });
-      }
-      
-      // Validar estructura de productos
-      for (const item of itemsToAdvance) {
-        if (!item.idDetalle || !item.cantidad || item.cantidad <= 0) {
+      try {
+        const { 
+          idOrden, 
+          idProcesoActual, 
+          idProcesoSiguiente, 
+          cedulaEmpleadoActual,
+          itemsToAdvance,
+          observaciones 
+        } = req.body;
+        
+        // Validaciones
+        if (!idOrden || !idProcesoActual || !idProcesoSiguiente || !cedulaEmpleadoActual || !itemsToAdvance || !itemsToAdvance.length) {
           return res.status(400).json({
             success: false,
-            message: 'Cada producto debe tener un ID de detalle y una cantidad válida'
+            message: 'Faltan datos requeridos. Se necesita ID de orden, proceso actual, proceso siguiente, cédula del empleado y productos a avanzar'
           });
         }
+        
+        // Validar que los procesos sean diferentes
+        if (parseInt(idProcesoActual) === parseInt(idProcesoSiguiente)) {
+          return res.status(400).json({
+            success: false,
+            message: 'El proceso actual y el siguiente no pueden ser iguales'
+          });
+        }
+        
+        // Validar estructura de productos
+        for (const item of itemsToAdvance) {
+          if (!item.idDetalle) {
+            return res.status(400).json({
+              success: false,
+              message: 'Cada producto debe tener un ID de detalle válido'
+            });
+          }
+        }
+        
+        await AdvanceOrderModel.advanceProductsToNextProcess({
+          idOrden, 
+          idProcesoActual, 
+          idProcesoSiguiente, 
+          cedulaEmpleadoActual,
+          itemsToAdvance,
+          observaciones
+        });
+        
+        return res.status(200).json({
+          success: true,
+          message: 'Productos avanzados exitosamente al siguiente proceso'
+        });
+      } catch (error) {
+        return res.status(500).json({
+          success: false,
+          message: `Error al avanzar productos: ${error.message}`
+        });
       }
-      
-      await AdvanceOrderModel.advanceProductsToNextProcess({
-        idOrden, 
-        idProcesoActual, 
-        idProcesoSiguiente, 
-        cedulaEmpleadoActual,
-        itemsToAdvance,
-        observaciones
-      });
-      
-      return res.status(200).json({
-        success: true,
-        message: 'Productos avanzados exitosamente al siguiente proceso'
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: `Error al avanzar productos: ${error.message}`
-      });
-    }
   }
 }
 
