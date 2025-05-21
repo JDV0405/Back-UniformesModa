@@ -315,7 +315,7 @@ router.delete('/delete/orders/:orderId/products/:detailId', orderController.dele
  *                   type: string
  *                   example: "Error al eliminar la orden"
  */
-router.delete('/orders/:orderId', orderController.deleteOrder);
+router.delete('/delete/orders/:orderId', orderController.deleteOrder);
 
 
 module.exports = router;
