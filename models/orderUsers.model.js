@@ -53,26 +53,44 @@ const getOrdersByClientId = async (clienteId) => {
  */
 const getOrderDetailsById = async (orderId) => {
   try {
-    // La consulta de la orden ya incluye correctamente los datos del departamento
+    // Primero obtenemos la información básica de la orden
     const orderQuery = await pool.query(
-      `SELECT op.*, 
+      `SELECT op.id_orden, op.fecha_aproximada, op.id_cliente, op.id_direccion,
+              cp.url_comprobante,
+              e.nombre as empleado_nombre, e.apellidos as empleado_apellidos
+       FROM orden_produccion op
+       LEFT JOIN comprobante_pago cp ON op.id_comprobante_pago = cp.id_comprobante_pago
+       LEFT JOIN empleado e ON op.cedula_empleado_responsable = e.cedula 
+       WHERE op.id_orden = $1`,
+      [orderId]
+    );
+    
+    if (orderQuery.rows.length === 0) {
+      return null;
+    }
+    
+    // Consulta principal con información relacionada usando la dirección asociada a la orden
+    const detailsQuery = await pool.query(
+      `SELECT 
+        op.*, 
         c.nombre as cliente_nombre, 
         c.correo as cliente_correo,
         c.tipo as tipo_cliente,
-        (SELECT tc.telefono FROM telefono_cliente tc WHERE tc.id_cliente = c.id_cliente LIMIT 1) as cliente_telefono,
-        (SELECT tc.tipo FROM telefono_cliente tc WHERE tc.id_cliente = c.id_cliente LIMIT 1) as tipo_telefono,
-        (SELECT d.direccion FROM direccion d WHERE d.id_cliente = c.id_cliente LIMIT 1) as cliente_direccion,
-        (SELECT ci.ciudad FROM ciudad ci 
-          JOIN direccion d ON ci.id_ciudad = d.id_ciudad
-          WHERE d.id_cliente = c.id_cliente LIMIT 1) as cliente_ciudad,
-        (SELECT dep.id_departamento FROM departamento dep
-          JOIN ciudad ci ON dep.id_departamento = ci.id_departamento
-          JOIN direccion d ON ci.id_ciudad = d.id_ciudad
-          WHERE d.id_cliente = c.id_cliente LIMIT 1) as departamento_id,
-        (SELECT dep.nombre FROM departamento dep
-          JOIN ciudad ci ON dep.id_departamento = ci.id_departamento
-          JOIN direccion d ON ci.id_ciudad = d.id_ciudad
-          WHERE d.id_cliente = c.id_cliente LIMIT 1) as departamento_nombre,
+        d.direccion as cliente_direccion,
+        ci.id_ciudad,
+        ci.ciudad as cliente_ciudad,
+        dep.id_departamento as departamento_id,
+        dep.nombre as departamento_nombre,
+        (
+          SELECT json_build_object(
+            'telefono', tc.telefono,
+            'tipo', tc.tipo
+          )
+          FROM telefono_cliente tc 
+          WHERE tc.id_cliente = op.id_cliente
+          ORDER BY tc.id_telefono DESC
+          LIMIT 1
+        ) as telefono_info,
         (CASE 
           WHEN c.tipo = 'Natural' THEN 
             (SELECT json_build_object('tipo_doc', n.tipo_doc, 'profesion', n.profesion)
@@ -84,15 +102,27 @@ const getOrderDetailsById = async (orderId) => {
         END) as datos_especificos
       FROM orden_produccion op
       JOIN cliente c ON op.id_cliente = c.id_cliente
+      LEFT JOIN direccion d ON op.id_direccion = d.id_direccion
+      LEFT JOIN ciudad ci ON d.id_ciudad = ci.id_ciudad
+      LEFT JOIN departamento dep ON ci.id_departamento = dep.id_departamento
       WHERE op.id_orden = $1`,
       [orderId]
     );
     
-    if (orderQuery.rows.length === 0) {
+    if (detailsQuery.rows.length === 0) {
       return null;
     }
     
-    const order = orderQuery.rows[0];
+    const order = detailsQuery.rows[0];
+    
+    // Extraemos y estructuramos los datos agrupados
+    if (order.telefono_info) {
+      order.cliente_telefono = order.telefono_info.telefono;
+      order.tipo_telefono = order.telefono_info.tipo;
+      delete order.telefono_info;
+    }
+    
+    // Ya no necesitamos procesar direccion_info porque ahora obtenemos los campos directamente
     
     // Obtener productos de la orden
     const productsQuery = await pool.query(
@@ -112,40 +142,30 @@ const getOrderDetailsById = async (orderId) => {
       [orderId]
     );
     
-    // Obtener todos los colores disponibles con sus códigos hexadecimales
+    // Procesamiento de colores
     const colorsQuery = await pool.query(
       `SELECT nombre_color, codigo_hex FROM color`
     );
     
-    // Crear un mapa de nombres de colores a códigos hexadecimales
     const colorMap = {};
     colorsQuery.rows.forEach(color => {
       colorMap[color.nombre_color.toLowerCase()] = color.codigo_hex;
     });
     
-    // Enriquecer los productos con códigos de color
     const productosConColores = productsQuery.rows.map(producto => {
-      // Crear una copia del producto para no modificar el original
       const productoConColor = { ...producto };
       
-      // Verificar si el producto tiene atributos de usuario y un color
       if (productoConColor.atributosusuario && productoConColor.atributosusuario.color) {
         const nombreColor = productoConColor.atributosusuario.color.toLowerCase();
         
-        // Buscar el código hexadecimal exacto
         if (colorMap[nombreColor]) {
           productoConColor.color_hex = colorMap[nombreColor];
         } else {
-          // Buscar el color por coincidencia parcial
           const colorParcial = Object.keys(colorMap).find(color => 
             nombreColor.includes(color.toLowerCase()) || color.toLowerCase().includes(nombreColor)
           );
           
-          if (colorParcial) {
-            productoConColor.color_hex = colorMap[colorParcial];
-          } else {
-            productoConColor.color_hex = null; // No se encontró un código de color
-          }
+          productoConColor.color_hex = colorParcial ? colorMap[colorParcial] : null;
         }
       } else {
         productoConColor.color_hex = null;

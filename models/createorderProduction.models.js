@@ -18,8 +18,7 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
         await addClientPhone(client, clientId, clientData.telefono, 'Móvil');
         
         // 3. Add client address
-        await addClientAddress(client, clientId, clientData.direccion, clientData.idCiudad, clientData.idDepartamento);
-        
+        const direccionId = await addClientAddress(client, clientId, clientData.direccion, clientData.idCiudad, clientData.idDepartamento);
         // 4. Handle payment proof upload
         let comprobanteId = null;
         if (paymentInfo.tipoPago === 'contado' && paymentProofFile) {
@@ -38,7 +37,8 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
             paymentInfo.tipoPago,
             comprobanteId,
             orderData.observaciones,
-            orderData.cedulaEmpleadoResponsable
+            orderData.cedulaEmpleadoResponsable,
+            direccionId
         );
         
         // 6. Add products to order
@@ -242,11 +242,13 @@ async function addClientAddress(client, clientId, address, cityId, departmentId)
         ciudadId: cityId
     };
     
-    // Insert the address with department info in observations
-    await client.query(
-        'INSERT INTO direccion(id_cliente, direccion, id_ciudad, observaciones) VALUES($1, $2, $3, $4)',
+    // Insert the address with department info in observations and return the ID
+    const addressResult = await client.query(
+        'INSERT INTO direccion(id_cliente, direccion, id_ciudad, observaciones) VALUES($1, $2, $3, $4) RETURNING id_direccion',
         [clientId, address, cityId, departmentId ? JSON.stringify(locationInfo) : null]
     );
+    
+    return addressResult.rows[0].id_direccion;
 }
 
 async function savePaymentProof(file) {
@@ -287,14 +289,13 @@ async function createPaymentProof(client, filePath) {
     
     return result.rows[0].id_comprobante_pago;
 }
-
-async function createProductionOrder(client, clientId, dueDate, paymentType, comprobanteId, observations, employeeId) {
+async function createProductionOrder(client, clientId, dueDate, paymentType, comprobanteId, observations, employeeId, direccionId) {
     const result = await client.query(
         `INSERT INTO orden_produccion(
             id_cliente, fecha_aproximada, tipo_pago, id_comprobante_pago, 
-            observaciones, cedula_empleado_responsable
-        ) VALUES($1, $2, $3, $4, $5, $6) RETURNING id_orden`,
-        [clientId, dueDate, paymentType, comprobanteId, observations, employeeId]
+            observaciones, cedula_empleado_responsable, id_direccion
+        ) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING id_orden`,
+        [clientId, dueDate, paymentType, comprobanteId, observations, employeeId, direccionId]
     );
     
     return result.rows[0].id_orden;
