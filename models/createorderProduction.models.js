@@ -208,8 +208,6 @@ async function createOrUpdateClient(client, clientData) {
     return clientData.cedula;
 }
 
-
-
 async function addClientPhone(client, clientId, phoneNumber, phoneType) {
     // Check if phone exists
     const checkPhone = await client.query(
@@ -302,8 +300,148 @@ async function createProductionOrder(client, clientId, dueDate, paymentType, com
     return result.rows[0].id_orden;
 }
 
+async function deleteProductFromOrder(orderId, detailId) {
+    const client = await pool.connect();
+    
+    try {
+        // Iniciar transacción
+        await client.query('BEGIN');
+        
+        // Verificar que el detalle pertenece a la orden especificada
+        const checkDetail = await client.query(
+            'SELECT id_detalle FROM detalle_producto_orden WHERE id_detalle = $1 AND id_orden = $2',
+            [detailId, orderId]
+        );
+        
+        if (checkDetail.rows.length === 0) {
+            throw new Error('El producto no existe en la orden especificada');
+        }
+        
+        // Primero eliminar registros relacionados en producto_proceso
+        await client.query(
+            'DELETE FROM producto_proceso WHERE id_detalle_producto = $1',
+            [detailId]
+        );
+        
+        // Luego eliminar el detalle del producto
+        const deleteResult = await client.query(
+            'DELETE FROM detalle_producto_orden WHERE id_detalle = $1 RETURNING id_detalle, id_producto',
+            [detailId]
+        );
+        
+        await client.query('COMMIT');
+        
+        return {
+            success: true,
+            data: {
+                id_detalle: deleteResult.rows[0].id_detalle,
+                id_producto: deleteResult.rows[0].id_producto
+            },
+            message: "Producto eliminado correctamente de la orden"
+        };
+        
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error al eliminar producto de la orden:', error);
+        
+        return {
+            success: false,
+            message: "Error al eliminar producto de la orden",
+            error: error.message
+        };
+    } finally {
+        client.release();
+    }
+}
+
+async function deleteOrder(orderId) {
+    const client = await pool.connect();
+    
+    try {
+        // Iniciar transacción
+        await client.query('BEGIN');
+        
+        // Verificar que la orden existe
+        const checkOrder = await client.query(
+            'SELECT id_orden FROM orden_produccion WHERE id_orden = $1',
+            [orderId]
+        );
+        
+        if (checkOrder.rows.length === 0) {
+            throw new Error('La orden especificada no existe');
+        }
+        
+        // 1. Eliminar registros en producto_proceso relacionados con los detalles de la orden
+        await client.query(`
+            DELETE FROM producto_proceso 
+            WHERE id_detalle_producto IN (
+                SELECT id_detalle FROM detalle_producto_orden WHERE id_orden = $1
+            )`,
+            [orderId]
+        );
+        
+        // 2. Eliminar los detalles de productos de la orden
+        await client.query(
+            'DELETE FROM detalle_producto_orden WHERE id_orden = $1',
+            [orderId]
+        );
+        
+        // 3. Eliminar los procesos relacionados a la orden
+        await client.query(
+            'DELETE FROM detalle_proceso WHERE id_orden = $1',
+            [orderId]
+        );
+        
+        // 4. Obtener el ID del comprobante de pago para eliminarlo después
+        const comprobanteResult = await client.query(
+            'SELECT id_comprobante_pago FROM orden_produccion WHERE id_orden = $1',
+            [orderId]
+        );
+        
+        const comprobanteId = comprobanteResult.rows[0]?.id_comprobante_pago;
+        
+        // 5. Eliminar la orden de producción
+        const deleteResult = await client.query(
+            'DELETE FROM orden_produccion WHERE id_orden = $1 RETURNING id_orden, id_cliente',
+            [orderId]
+        );
+        
+        // 6. Eliminar el comprobante de pago si existe
+        if (comprobanteId) {
+            await client.query(
+                'DELETE FROM comprobante_pago WHERE id_comprobante_pago = $1',
+                [comprobanteId]
+            );
+        }
+        
+        await client.query('COMMIT');
+        
+        return {
+            success: true,
+            message: "Orden eliminada correctamente",
+            data: { 
+                id_orden: parseInt(orderId),
+                id_cliente: deleteResult.rows[0]?.id_cliente 
+            }
+        };
+        
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error al eliminar la orden:', error);
+        
+        return {
+            success: false,
+            message: "Error al eliminar la orden",
+            error: error.message
+        };
+    } finally {
+        client.release();
+    }
+}
 
 
 module.exports = {
-    createOrder
+    createOrder,
+    deleteProductFromOrder,
+    deleteOrder
 };

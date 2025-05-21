@@ -249,4 +249,73 @@ router.post('/createOrder',
     orderController.createOrder
 );
 
+router.delete('/delete/orders/:orderId/products/:detailId', orderController.deleteProductFromOrder);
+
+/**
+ * @swagger
+ * /api/orders/{orderId}:
+ *   delete:
+ *     summary: Elimina una orden de producción completa
+ *     description: Elimina una orden y todos sus registros relacionados (productos, procesos, comprobante)
+ *     tags: [Órdenes]
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la orden a eliminar
+ *     responses:
+ *       200:
+ *         description: Orden eliminada correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Orden eliminada correctamente"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id_orden:
+ *                       type: integer
+ *                       example: 3
+ *                     id_cliente:
+ *                       type: integer
+ *                       example: 101
+ *       400:
+ *         description: Error en la solicitud
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "La orden especificada no existe"
+ *       500:
+ *         description: Error del servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error al eliminar la orden"
+ */
+router.delete('/orders/:orderId', orderController.deleteOrder);
+
+
 module.exports = router;

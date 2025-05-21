@@ -187,7 +187,78 @@ async function createOrder(req, res) {
     }
 }
 
+const deleteProductFromOrder = async (req, res) => {
+    try {
+        const { orderId, detailId } = req.params;
+        
+        // Verificar que se proporcionaron los parámetros necesarios
+        if (!orderId || !detailId) {
+            return res.status(400).json({
+                success: false,
+                message: "Se requieren ID de orden e ID de detalle del producto"
+            });
+        }
+
+        // Corregido: usar orderModel en lugar de orderProductionModel
+        const result = await orderModel.deleteProductFromOrder(
+            parseInt(orderId), 
+            parseInt(detailId)
+        );
+
+        // Si la operación no fue exitosa, devolver error
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+
+        // Devolver respuesta exitosa
+        return res.status(200).json(result);
+        
+    } catch (error) {
+        console.error('Error en controlador de eliminación de producto:', error);
+        return res.status(500).json({
+            success: false,
+            message: "Error interno del servidor al eliminar el producto",
+            error: error.message
+        });
+    }
+};
+
+const deleteOrder = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        
+        // Verificar que se proporcionó el ID de la orden
+        if (!orderId) {
+            return res.status(400).json({
+                success: false,
+                message: "Se requiere el ID de la orden"
+            });
+        }
+
+        // Llamar a la función del modelo para eliminar la orden
+        const result = await orderModel.deleteOrder(parseInt(orderId));
+
+        // Si la operación no fue exitosa, devolver error
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+
+        // Devolver respuesta exitosa
+        return res.status(200).json(result);
+        
+    } catch (error) {
+        console.error('Error en controlador de eliminación de orden:', error);
+        return res.status(500).json({
+            success: false,
+            message: "Error interno del servidor al eliminar la orden",
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     createOrder,
-    uploadMiddleware
+    uploadMiddleware,
+    deleteProductFromOrder,
+    deleteOrder
 };
