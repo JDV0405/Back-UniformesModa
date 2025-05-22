@@ -136,6 +136,34 @@ class AdvanceOrderController {
         });
       }
   }
+  
+  async getOrderDetail(req, res) {
+    try {
+      const { idOrden } = req.params;
+      
+      if (!idOrden) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Se requiere el ID de la orden' 
+        });
+      }
+      
+      const orderDetail = await AdvanceOrderModel.getOrderDetail(idOrden);
+      
+      if (!orderDetail.success) {
+        return res.status(404).json(orderDetail);
+      }
+      
+      return res.status(200).json(orderDetail);
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al obtener detalles de la orden: ${error.message}`
+      });
+    }
+  }
 }
+
+
 
 module.exports = new AdvanceOrderController();
