@@ -257,6 +257,123 @@ class AdvanceOrderModel {
       throw new Error(`Error al obtener las órdenes por proceso: ${error.message}`);
     }
   }
+
+  async getOrderDetail(idOrden) {
+  try {
+    // 1. Obtener información general de la orden
+    const orderInfoQuery = `
+      SELECT 
+        op.id_orden, op.id_cliente, op.fecha_aproximada, op.tipo_pago,
+        op.id_comprobante_pago, op.observaciones, op.cedula_empleado_responsable, op.id_direccion,
+        c.nombre as cliente_nombre, c.correo as cliente_correo, c.tipo as tipo_cliente,
+        d.direccion as cliente_direccion, d.id_ciudad,
+        ci.ciudad as cliente_ciudad, ci.id_departamento as departamento_id,
+        dep.nombre as departamento_nombre,
+        CASE 
+          WHEN c.tipo = 'Natural' THEN 
+            (SELECT jsonb_build_object('tipo_doc', n.tipo_doc, 'profesion', n.profesion) FROM cli_natural n WHERE n.id_cliente = c.id_cliente)
+          WHEN c.tipo = 'Juridico' THEN 
+            (SELECT jsonb_build_object('sector_economico', j.sector_economico) FROM juridico j WHERE j.id_cliente = c.id_cliente)
+          ELSE NULL
+        END as datos_especificos
+      FROM orden_produccion op
+      JOIN cliente c ON op.id_cliente = c.id_cliente
+      LEFT JOIN direccion d ON op.id_direccion = d.id_direccion
+      LEFT JOIN ciudad ci ON d.id_ciudad = ci.id_ciudad
+      LEFT JOIN departamento dep ON ci.id_departamento = dep.id_departamento
+      WHERE op.id_orden = $1
+    `;
+    
+    // 2. Obtener teléfonos del cliente
+    const telQuery = `
+      SELECT telefono, tipo as tipo_telefono
+      FROM telefono_cliente
+      WHERE id_cliente = (SELECT id_cliente FROM orden_produccion WHERE id_orden = $1)
+      LIMIT 1
+    `;
+    
+    // 3. Obtener productos de la orden con su proceso actual
+    const productsQuery = `
+      SELECT 
+        dpo.id_detalle, dpo.id_orden, dpo.id_producto, dpo.cantidad,
+        dpo.atributosUsuario, dpo.bordado, dpo.observacion,
+        dpo.url_producto, dpo.estado,
+        p.nombre_producto,
+        (
+          SELECT dp.id_proceso
+          FROM producto_proceso pp
+          JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+          WHERE pp.id_detalle_producto = dpo.id_detalle
+          ORDER BY dp.fecha_inicio_proceso DESC
+          LIMIT 1
+        ) as id_proceso_actual,
+        (
+          SELECT ep.nombre
+          FROM producto_proceso pp
+          JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+          JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+          WHERE pp.id_detalle_producto = dpo.id_detalle
+          ORDER BY dp.fecha_inicio_proceso DESC
+          LIMIT 1
+        ) as nombre_proceso_actual,
+        CASE 
+          WHEN dpo.atributosUsuario->>'color' IS NOT NULL THEN
+            (SELECT codigo_hex FROM color WHERE nombre_color = dpo.atributosUsuario->>'color' LIMIT 1)
+          ELSE NULL
+        END as color_hex
+      FROM detalle_producto_orden dpo
+      JOIN producto p ON dpo.id_producto = p.id_producto
+      WHERE dpo.id_orden = $1
+    `;
+    
+    // 4. Obtener procesos por los que ha pasado la orden
+    const processesQuery = `
+      SELECT 
+        dp.id_detalle_proceso, dp.id_orden, dp.id_proceso,
+        dp.fecha_inicio_proceso, dp.fecha_final_proceso,
+        dp.cedula_empleado, dp.observaciones, dp.estado,
+        ep.nombre as nombre_proceso
+      FROM detalle_proceso dp
+      JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+      WHERE dp.id_orden = $1
+      ORDER BY dp.fecha_inicio_proceso DESC
+    `;
+    
+    // Ejecutar todas las consultas
+    const [orderResult, telResult, productsResult, processesResult] = await Promise.all([
+      db.query(orderInfoQuery, [idOrden]),
+      db.query(telQuery, [idOrden]),
+      db.query(productsQuery, [idOrden]),
+      db.query(processesQuery, [idOrden])
+    ]);
+    
+    // Si no se encuentra la orden
+    if (orderResult.rows.length === 0) {
+      return {
+        success: false,
+        message: `No se encontró la orden con ID ${idOrden}`
+      };
+    }
+    
+    // Construir el objeto de respuesta
+    const orderInfo = {
+      ...orderResult.rows[0],
+      cliente_telefono: telResult.rows.length > 0 ? telResult.rows[0].telefono : null,
+      tipo_telefono: telResult.rows.length > 0 ? telResult.rows[0].tipo_telefono : null,
+      productos: productsResult.rows,
+      procesos: processesResult.rows
+    };
+    
+    return {
+      success: true,
+      data: orderInfo,
+      message: "Detalles de la orden obtenidos exitosamente"
+    };
+    
+  } catch (error) {
+    throw new Error(`Error al obtener detalles de la orden: ${error.message}`);
+  }
+}
 }
 
 module.exports = new AdvanceOrderModel();
