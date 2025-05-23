@@ -31,7 +31,6 @@ app.use('/api', createOrder);
 app.use('/api/orderManagement', orderManagementRoutes);
 app.use('/api', productRoutes);
 app.use('/api/produccion', advanceOrderRoutes);
-app.use('/api/testParcial', avanceProductosRoutes);
 
 
 // Use routes
