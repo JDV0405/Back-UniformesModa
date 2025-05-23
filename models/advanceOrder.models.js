@@ -426,16 +426,16 @@ async areAllProductsInDelivery(idOrden, idProcesoEntrega) {
       // 2. Marcar el proceso de entrega como "Completado"
       await db.query(
         `UPDATE detalle_proceso 
-        SET estado = 'Completado', fecha_final_proceso = CURRENT_TIMESTAMP 
-        WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'`,
+         SET estado = 'Completado', fecha_final_proceso = CURRENT_TIMESTAMP 
+         WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'`,
         [idOrden, idProcesoEntrega]
       );
       
-      // 3. Actualizar el estado de la orden en orden_produccion
+      // 3. Actualizar los productos de la orden como entregados
       await db.query(
-        `UPDATE orden_produccion 
-        SET estado = 'Completada' 
-        WHERE id_orden = $1`,
+        `UPDATE detalle_producto_orden 
+         SET estado = 'Entregado' 
+         WHERE id_orden = $1`,
         [idOrden]
       );
       
@@ -443,11 +443,11 @@ async areAllProductsInDelivery(idOrden, idProcesoEntrega) {
       if (observaciones) {
         await db.query(
           `UPDATE detalle_proceso 
-          SET observaciones = CASE 
-            WHEN observaciones IS NULL THEN $1
-            ELSE observaciones || E'\n' || $1
-          END
-          WHERE id_orden = $2 AND id_proceso = $3 AND fecha_final_proceso IS NOT NULL`,
+           SET observaciones = CASE 
+             WHEN observaciones IS NULL THEN $1
+             ELSE observaciones || E'\n' || $1
+           END
+           WHERE id_orden = $2 AND id_proceso = $3 AND fecha_final_proceso IS NOT NULL`,
           [observaciones, idOrden, idProcesoEntrega]
         );
       }
