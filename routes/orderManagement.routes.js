@@ -194,66 +194,6 @@ router.get('/orders/all', OrderController.getAllOrders);
 
 /**
  * @swagger
- * /orders/complete:
- *   post:
- *     summary: Completa una orden y cambia su estado a finalizado
- *     tags: [Órdenes]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               idOrden:
- *                 type: string
- *                 description: ID de la orden a finalizar
- *               observaciones:
- *                 type: string
- *                 description: Observaciones finales opcionales
- *             required:
- *               - idOrden
- *     responses:
- *       200:
- *         description: Orden finalizada exitosamente
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *                 data:
- *                   type: object
- *                   properties:
- *                     id_orden:
- *                       type: string
- *                     estado:
- *                       type: string
- *                     fecha_finalizacion:
- *                       type: string
- *                       format: date-time
- *       400:
- *         description: Error en los datos proporcionados
- *       401:
- *         description: No autorizado - Token inválido o expirado
- *       500:
- *         description: Error interno del servidor
- */
-router.post('/orders/complete', OrderController.completeOrder);
-
-router.get('/orders/:idOrden/products', OrderController.getOrderProductDetails);
-
-router.get('/orders/:idOrden/process/:idProceso/products', OrderController.getProductsInProcess);
-
-router.get('/products/:idDetalle/history', OrderController.getProductMovementHistory);
-
-/**
- * @swagger
  * /orders/completed:
  *   get:
  *     summary: Obtiene todas las órdenes completadas
@@ -381,7 +321,5 @@ router.get('/orders/completed', OrderController.getCompletedOrders);
  *         description: Error interno del servidor
  */
 router.get('/orders/:idOrden', OrderController.getOrderDetails);
-
-
 
 module.exports = router;

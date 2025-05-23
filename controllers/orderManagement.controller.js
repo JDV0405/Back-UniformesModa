@@ -125,39 +125,6 @@ const OrderController = {
     }
   },
 
-  completeOrder: async (req, res) => {
-    try {
-      const { idOrden, observaciones } = req.body;
-      const cedulaEmpleado = req.cedula; // Obtenemos la cédula del empleado del token JWT
-      
-      if (!idOrden) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'El ID de la orden es obligatorio' 
-        });
-      }
-      
-      const result = await OrderModel.completeOrder(
-        idOrden,
-        cedulaEmpleado,
-        observaciones || ''
-      );
-      
-      res.status(200).json({
-        success: true,
-        message: 'Orden finalizada correctamente',
-        data: result
-      });
-      
-    } catch (error) {
-      console.error('Error al finalizar orden:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Error en el servidor', 
-        error: error.message 
-      });
-    }
-  },
   
   getOrderDetails: async (req, res) => {
     try {
@@ -219,89 +186,11 @@ const OrderController = {
     }
   },
 
-  getOrderProductDetails: async (req, res) => {
-    try {
-      const { idOrden } = req.params;
-      
-      if (!idOrden) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'ID de orden es requerido' 
-        });
-      }
-      
-      const products = await OrderModel.getOrderProductDetails(idOrden);
-      
-      res.status(200).json({
-        success: true,
-        data: products
-      });
-      
-    } catch (error) {
-      console.error('Error al obtener detalles de productos:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Error en el servidor', 
-        error: error.message 
-      });
-    }
-  },
 
-  getProductsInProcess: async (req, res) => {
-    try {
-      const { idOrden, idProceso } = req.params;
-      
-      if (!idOrden || !idProceso) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'ID de orden y proceso son requeridos' 
-        });
-      }
-      
-      const products = await OrderModel.getProductsInProcess(idOrden, idProceso);
-      
-      res.status(200).json({
-        success: true,
-        data: products
-      });
-      
-    } catch (error) {
-      console.error('Error al obtener productos en proceso:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Error en el servidor', 
-        error: error.message 
-      });
-    }
-  },
 
-  getProductMovementHistory: async (req, res) => {
-    try {
-      const { idDetalle } = req.params;
-      
-      if (!idDetalle) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'ID del detalle de producto es requerido' 
-        });
-      }
-      
-      const history = await OrderModel.getProductMovementHistory(idDetalle);
-      
-      res.status(200).json({
-        success: true,
-        data: history
-      });
-      
-    } catch (error) {
-      console.error('Error al obtener historial de movimiento:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Error en el servidor', 
-        error: error.message 
-      });
-    }
-  }
+
+
+  
 
 
 };
