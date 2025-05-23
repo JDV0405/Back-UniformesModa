@@ -19,13 +19,13 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
         
         // 3. Add client address
         const direccionId = await addClientAddress(client, clientId, clientData.direccion, clientData.idCiudad, clientData.idDepartamento);
+        
         // 4. Handle payment proof upload
         let comprobanteId = null;
         if (paymentInfo.tipoPago === 'contado' && paymentProofFile) {
             const uploadPath = await savePaymentProof(paymentProofFile);
             comprobanteId = await createPaymentProof(client, uploadPath);
         } else {
-            // For credit payment, create an empty payment proof
             comprobanteId = await createPaymentProof(client, null);
         }
         
@@ -41,9 +41,21 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
             direccionId
         );
         
-        // 6. Add products to order
+        // 6. Create initial process record
+        const initialProcessId = 1; // ID del proceso inicial
+        const processResult = await client.query(
+            `INSERT INTO detalle_proceso(
+                id_orden, id_proceso, fecha_inicio_proceso, cedula_empleado, observaciones, estado
+            ) VALUES($1, $2, CURRENT_TIMESTAMP, $3, $4, $5) RETURNING id_detalle_proceso`,
+            [orderId, initialProcessId, orderData.cedulaEmpleadoResponsable, '', 'En Proceso']
+        );
+        
+        const processId = processResult.rows[0].id_detalle_proceso;
+        
+        // 7. Add products to order
         const productDetails = [];
         for (const product of products) {
+            // Insertar el producto en detalle_producto_orden
             const detailId = await addProductToOrder(
                 client,
                 orderId,
@@ -55,7 +67,15 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 product.urlProducto
             );
             
-            // Get product name for response
+            // Insertar el proceso inicial en producto_proceso
+            await client.query(
+                `INSERT INTO producto_proceso(
+                    id_detalle_producto, id_detalle_proceso, cantidad
+                ) VALUES ($1, $2, $3)`,
+                [detailId, processId, product.cantidad]
+            );
+            
+            // Obtener el nombre del producto para la respuesta
             const productResult = await client.query(
                 'SELECT nombre_producto FROM producto WHERE id_producto = $1',
                 [product.idProducto]
@@ -71,20 +91,10 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 observacion: product.observacion,
                 url_producto: product.urlProducto,
                 estado: 'En Producción',
-                nombre_producto: productResult.rows[0]?.nombre_producto || 'Producto sin nombre'
+                nombre_producto: productResult.rows[0]?.nombre_producto || 'Producto sin nombre',
+                id_proceso_actual: initialProcessId // Proceso inicial
             });
         }
-        
-        // 7. Create initial process record
-        const initialProcessId = 1; // Assuming 1 is the ID for the initial process (adjust as needed)
-        const processResult = await client.query(
-            `INSERT INTO detalle_proceso(
-                id_orden, id_proceso, fecha_inicio_proceso, cedula_empleado, observaciones, estado
-            ) VALUES($1, $2, CURRENT_TIMESTAMP, $3, $4, $5) RETURNING id_detalle_proceso`,
-            [orderId, initialProcessId, orderData.cedulaEmpleadoResponsable, '', 'En Proceso']
-        );
-        
-        const processId = processResult.rows[0].id_detalle_proceso;
         
         // 8. Get process name for the response
         const processNameResult = await client.query(

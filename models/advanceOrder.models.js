@@ -306,7 +306,7 @@ class AdvanceOrderModel {
           WHERE pp.id_detalle_producto = dpo.id_detalle
           ORDER BY dp.fecha_inicio_proceso DESC
           LIMIT 1
-        ) as id_proceso_actual,
+        ) AS id_proceso_actual,
         (
           SELECT ep.nombre
           FROM producto_proceso pp
@@ -315,12 +315,7 @@ class AdvanceOrderModel {
           WHERE pp.id_detalle_producto = dpo.id_detalle
           ORDER BY dp.fecha_inicio_proceso DESC
           LIMIT 1
-        ) as nombre_proceso_actual,
-        CASE 
-          WHEN dpo.atributosUsuario->>'color' IS NOT NULL THEN
-            (SELECT codigo_hex FROM color WHERE nombre_color = dpo.atributosUsuario->>'color' LIMIT 1)
-          ELSE NULL
-        END as color_hex
+        ) AS nombre_proceso_actual
       FROM detalle_producto_orden dpo
       JOIN producto p ON dpo.id_producto = p.id_producto
       WHERE dpo.id_orden = $1
