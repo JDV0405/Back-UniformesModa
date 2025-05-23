@@ -22,4 +22,11 @@ router.get('/orden/:idOrden/detalle', advanceOrderController.getOrderDetail);
 // Completar una orden
 router.post('/completed', advanceOrderController.completeOrder);
 
+// Obtener órdenes completadas
+router.get('/ordersCompleted', advanceOrderController.getCompletedOrders);
+
+// Obtener detalle de una orden completada
+router.get('/ordenes-completadas/:idOrden', advanceOrderController.getCompletedOrderDetail);
+
+
 module.exports = router;

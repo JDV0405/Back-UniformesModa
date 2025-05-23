@@ -404,7 +404,7 @@ async areAllProductsInDelivery(idOrden, idProcesoEntrega) {
   }
 
   // Completa la orden cuando todos sus productos están en entrega
-  async completeOrder(datos) {
+async completeOrder(datos) {
     const { 
       idOrden, 
       idProcesoEntrega, 
@@ -458,7 +458,75 @@ async areAllProductsInDelivery(idOrden, idProcesoEntrega) {
       await db.query('ROLLBACK');
       throw error;
     }
+}
+
+async getCompletedOrders() {
+    try {
+      const query = `
+        WITH order_info AS (
+          SELECT DISTINCT
+            op.id_orden,
+            op.id_cliente,
+            op.fecha_aproximada,
+            c.nombre AS nombre_cliente,
+            (
+              SELECT dp.fecha_final_proceso
+              FROM detalle_proceso dp
+              JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+              WHERE dp.id_orden = op.id_orden
+              AND dp.estado = 'Completado'
+              ORDER BY dp.fecha_final_proceso DESC
+              LIMIT 1
+            ) AS fecha_completado
+          FROM orden_produccion op
+          JOIN cliente c ON op.id_cliente = c.id_cliente
+          JOIN detalle_producto_orden dpo ON op.id_orden = dpo.id_orden
+          WHERE dpo.estado = 'Entregado'
+          GROUP BY op.id_orden, op.id_cliente, op.fecha_aproximada, c.nombre
+          HAVING COUNT(CASE WHEN dpo.estado != 'Entregado' THEN 1 END) = 0
+          ORDER BY fecha_completado DESC
+        )
+        SELECT 
+          oi.*,
+          COUNT(dpo.id_detalle) AS total_productos
+        FROM order_info oi
+        JOIN detalle_producto_orden dpo ON oi.id_orden = dpo.id_orden
+        GROUP BY oi.id_orden, oi.id_cliente, oi.nombre_cliente, oi.fecha_aproximada, oi.fecha_completado
+      `;
+      
+      const result = await db.query(query);
+      return result.rows;
+    } catch (error) {
+      throw new Error(`Error al obtener las órdenes completadas: ${error.message}`);
+    }
   }
+
+  // Obtener el detalle de una orden completada
+async getCompletedOrderDetail(idOrden) {
+    try {
+      // Verificar primero si la orden está completada
+      const checkQuery = `
+        SELECT COUNT(*) AS total, 
+               COUNT(CASE WHEN dpo.estado = 'Entregado' THEN 1 END) AS completed
+        FROM detalle_producto_orden dpo
+        WHERE dpo.id_orden = $1
+      `;
+      
+      const checkResult = await db.query(checkQuery, [idOrden]);
+      
+      if (checkResult.rows[0].total !== checkResult.rows[0].completed) {
+        return {
+          success: false,
+          message: "Esta orden no está completamente entregada"
+        };
+      }
+      
+      // Si está completada, obtener todos los detalles
+      return await this.getOrderDetail(idOrden);
+    } catch (error) {
+      throw new Error(`Error al obtener el detalle de la orden completada: ${error.message}`);
+    }
+}
 
 }
 

@@ -160,7 +160,7 @@ class AdvanceOrderController {
       });
     }
   }
-  
+
   async completeOrder(req, res) {
     try {
       const { 
@@ -193,6 +193,49 @@ class AdvanceOrderController {
       return res.status(500).json({
         success: false,
         message: `Error al completar la orden: ${error.message}`
+      });
+    }
+  }
+
+  async getCompletedOrders(req, res) {
+    try {
+      const ordenes = await AdvanceOrderModel.getCompletedOrders();
+      return res.status(200).json({
+        success: true,
+        data: ordenes,
+        message: 'Órdenes completadas obtenidas correctamente'
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al obtener órdenes completadas: ${error.message}`
+      });
+    }
+  }
+  
+  // Obtener el detalle de una orden completada
+  async getCompletedOrderDetail(req, res) {
+    try {
+      const { idOrden } = req.params;
+      
+      if (!idOrden) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Se requiere el ID de la orden' 
+        });
+      }
+      
+      const orderDetail = await AdvanceOrderModel.getCompletedOrderDetail(idOrden);
+      
+      if (!orderDetail.success) {
+        return res.status(404).json(orderDetail);
+      }
+      
+      return res.status(200).json(orderDetail);
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al obtener detalle de la orden completada: ${error.message}`
       });
     }
   }
