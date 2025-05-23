@@ -1,7 +1,6 @@
 const AdvanceOrderModel = require('../models/advanceOrder.models');
 
 class AdvanceOrderController {
- // Obtiene los productos de una orden
   async getOrderProducts(req, res) {
     try {
       const { idOrden } = req.params;
@@ -52,7 +51,6 @@ class AdvanceOrderController {
     }
   }
 
- // Obtiene los productos que están actualmente en un proceso específico
   async getProductsInProcess(req, res) {
     try {
       const { idOrden, idProceso } = req.params;
