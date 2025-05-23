@@ -16,7 +16,10 @@ router.post('/avanzar', advanceOrderController.advanceProducts);
 // Obtener órdenes por proceso
 router.get('/proceso/:idProceso', advanceOrderController.getOrdersByProcess);
 
+// Obtener detalle de una orden
 router.get('/orden/:idOrden/detalle', advanceOrderController.getOrderDetail);
 
+// Completar una orden
+router.post('/completed', advanceOrderController.completeOrder);
 
 module.exports = router;

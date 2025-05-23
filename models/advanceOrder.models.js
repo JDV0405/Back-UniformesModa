@@ -374,6 +374,97 @@ class AdvanceOrderModel {
     throw new Error(`Error al obtener detalles de la orden: ${error.message}`);
   }
 }
+
+async areAllProductsInDelivery(idOrden, idProcesoEntrega) {
+    try {
+      const query = `
+        SELECT 
+          COUNT(*) AS total_products,
+          SUM(CASE WHEN latest_process.id_proceso = $2 THEN 1 ELSE 0 END) AS products_in_delivery
+        FROM detalle_producto_orden dpo
+        LEFT JOIN LATERAL (
+          SELECT dp.id_proceso
+          FROM producto_proceso pp
+          JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+          WHERE pp.id_detalle_producto = dpo.id_detalle
+          ORDER BY dp.fecha_inicio_proceso DESC
+          LIMIT 1
+        ) latest_process ON true
+        WHERE dpo.id_orden = $1
+      `;
+      
+      const result = await db.query(query, [idOrden, idProcesoEntrega]);
+      
+      if (result.rows.length === 0) {
+        return false;
+      }
+      
+      const { total_products, products_in_delivery } = result.rows[0];
+      
+      // Verificar que haya productos y que todos estén en entrega
+      return parseInt(total_products) > 0 && parseInt(total_products) === parseInt(products_in_delivery);
+    } catch (error) {
+      throw new Error(`Error al verificar si todos los productos están en entrega: ${error.message}`);
+    }
+  }
+
+  // Completa la orden cuando todos sus productos están en entrega
+  async completeOrder(datos) {
+    const { 
+      idOrden, 
+      idProcesoEntrega, 
+      cedulaEmpleado,
+      observaciones 
+    } = datos;
+    
+    try {
+      // Iniciamos transacción
+      await db.query('BEGIN');
+      
+      // 1. Verificar que todos los productos estén en entrega
+      const allInDelivery = await this.areAllProductsInDelivery(idOrden, idProcesoEntrega);
+      
+      if (!allInDelivery) {
+        throw new Error('No se puede completar la orden porque no todos los productos están en el proceso de entrega');
+      }
+      
+      // 2. Marcar el proceso de entrega como "Completado"
+      await db.query(
+        `UPDATE detalle_proceso 
+        SET estado = 'Completado', fecha_final_proceso = CURRENT_TIMESTAMP 
+        WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'`,
+        [idOrden, idProcesoEntrega]
+      );
+      
+      // 3. Actualizar el estado de la orden en orden_produccion
+      await db.query(
+        `UPDATE orden_produccion 
+        SET estado = 'Completada' 
+        WHERE id_orden = $1`,
+        [idOrden]
+      );
+      
+      // Si hay observaciones, guardarlas
+      if (observaciones) {
+        await db.query(
+          `UPDATE detalle_proceso 
+          SET observaciones = CASE 
+            WHEN observaciones IS NULL THEN $1
+            ELSE observaciones || E'\n' || $1
+          END
+          WHERE id_orden = $2 AND id_proceso = $3 AND fecha_final_proceso IS NOT NULL`,
+          [observaciones, idOrden, idProcesoEntrega]
+        );
+      }
+      
+      await db.query('COMMIT');
+      return true;
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
+  }
+
 }
 
 module.exports = new AdvanceOrderModel();

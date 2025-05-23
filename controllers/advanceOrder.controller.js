@@ -160,6 +160,42 @@ class AdvanceOrderController {
       });
     }
   }
+  
+  async completeOrder(req, res) {
+    try {
+      const { 
+        idOrden, 
+        idProcesoEntrega, 
+        cedulaEmpleado,
+        observaciones 
+      } = req.body;
+      
+      // Validaciones
+      if (!idOrden || !idProcesoEntrega || !cedulaEmpleado) {
+        return res.status(400).json({
+          success: false,
+          message: 'Faltan datos requeridos. Se necesita ID de orden, ID del proceso de entrega y cédula del empleado'
+        });
+      }
+      
+      await AdvanceOrderModel.completeOrder({
+        idOrden, 
+        idProcesoEntrega, 
+        cedulaEmpleado,
+        observaciones
+      });
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Orden completada exitosamente'
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al completar la orden: ${error.message}`
+      });
+    }
+  }
 }
 
 
