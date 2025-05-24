@@ -1,7 +1,6 @@
 const db = require('../database/db');
 
 class AdvanceOrderModel {
-
   // Verifica si un producto de una orden ya está en un proceso específico
   async isProductInProcess(idDetalleProducto, idProceso) {
     try {
@@ -171,6 +170,7 @@ class AdvanceOrderModel {
       }
   }
 
+  // Obtener órdenes por proceso
   async getOrdersByProcess(idProceso) {
     try {
       const query = `
@@ -258,6 +258,7 @@ class AdvanceOrderModel {
     }
   }
 
+  // Obtener el detalle de una orden específica
   async getOrderDetail(idOrden) {
   try {
     // 1. Obtener información general de la orden
@@ -368,9 +369,10 @@ class AdvanceOrderModel {
   } catch (error) {
     throw new Error(`Error al obtener detalles de la orden: ${error.message}`);
   }
-}
+  }
 
-async areAllProductsInDelivery(idOrden, idProcesoEntrega) {
+  // Verifica si todos los productos de una orden están en un proceso específico
+  async areAllProductsInDelivery(idOrden, idProcesoEntrega) {
     try {
       const query = `
         SELECT 
@@ -404,63 +406,64 @@ async areAllProductsInDelivery(idOrden, idProcesoEntrega) {
   }
 
   // Completa la orden cuando todos sus productos están en entrega
-async completeOrder(datos) {
-    const { 
-      idOrden, 
-      idProcesoEntrega, 
-      cedulaEmpleado,
-      observaciones 
-    } = datos;
-    
-    try {
-      // Iniciamos transacción
-      await db.query('BEGIN');
+  async completeOrder(datos) {
+      const { 
+        idOrden, 
+        idProcesoEntrega, 
+        cedulaEmpleado,
+        observaciones 
+      } = datos;
       
-      // 1. Verificar que todos los productos estén en entrega
-      const allInDelivery = await this.areAllProductsInDelivery(idOrden, idProcesoEntrega);
-      
-      if (!allInDelivery) {
-        throw new Error('No se puede completar la orden porque no todos los productos están en el proceso de entrega');
-      }
-      
-      // 2. Marcar el proceso de entrega como "Completado"
-      await db.query(
-        `UPDATE detalle_proceso 
-         SET estado = 'Completado', fecha_final_proceso = CURRENT_TIMESTAMP 
-         WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'`,
-        [idOrden, idProcesoEntrega]
-      );
-      
-      // 3. Actualizar los productos de la orden como entregados
-      await db.query(
-        `UPDATE detalle_producto_orden 
-         SET estado = 'Entregado' 
-         WHERE id_orden = $1`,
-        [idOrden]
-      );
-      
-      // Si hay observaciones, guardarlas
-      if (observaciones) {
+      try {
+        // Iniciamos transacción
+        await db.query('BEGIN');
+        
+        // 1. Verificar que todos los productos estén en entrega
+        const allInDelivery = await this.areAllProductsInDelivery(idOrden, idProcesoEntrega);
+        
+        if (!allInDelivery) {
+          throw new Error('No se puede completar la orden porque no todos los productos están en el proceso de entrega');
+        }
+        
+        // 2. Marcar el proceso de entrega como "Completado"
         await db.query(
           `UPDATE detalle_proceso 
-           SET observaciones = CASE 
-             WHEN observaciones IS NULL THEN $1
-             ELSE observaciones || E'\n' || $1
-           END
-           WHERE id_orden = $2 AND id_proceso = $3 AND fecha_final_proceso IS NOT NULL`,
-          [observaciones, idOrden, idProcesoEntrega]
+          SET estado = 'Completado', fecha_final_proceso = CURRENT_TIMESTAMP 
+          WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'`,
+          [idOrden, idProcesoEntrega]
         );
+        
+        // 3. Actualizar los productos de la orden como entregados
+        await db.query(
+          `UPDATE detalle_producto_orden 
+          SET estado = 'Entregado' 
+          WHERE id_orden = $1`,
+          [idOrden]
+        );
+        
+        // Si hay observaciones, guardarlas
+        if (observaciones) {
+          await db.query(
+            `UPDATE detalle_proceso 
+            SET observaciones = CASE 
+              WHEN observaciones IS NULL THEN $1
+              ELSE observaciones || E'\n' || $1
+            END
+            WHERE id_orden = $2 AND id_proceso = $3 AND fecha_final_proceso IS NOT NULL`,
+            [observaciones, idOrden, idProcesoEntrega]
+          );
+        }
+        
+        await db.query('COMMIT');
+        return true;
+      } catch (error) {
+        await db.query('ROLLBACK');
+        throw error;
       }
-      
-      await db.query('COMMIT');
-      return true;
-    } catch (error) {
-      await db.query('ROLLBACK');
-      throw error;
-    }
-}
-
-async getCompletedOrders() {
+  }
+  
+  // Obtener órdenes completadas
+  async getCompletedOrders() {
     try {
       const query = `
         WITH order_info AS (
@@ -477,7 +480,25 @@ async getCompletedOrders() {
               AND dp.estado = 'Completado'
               ORDER BY dp.fecha_final_proceso DESC
               LIMIT 1
-            ) AS fecha_completado
+            ) AS fecha_completado,
+            (
+              SELECT dp.observaciones
+              FROM detalle_proceso dp
+              JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+              WHERE dp.id_orden = op.id_orden
+              AND dp.estado = 'Completado'
+              ORDER BY dp.fecha_final_proceso DESC
+              LIMIT 1
+            ) AS observaciones,
+            (
+              SELECT ep.nombre
+              FROM detalle_proceso dp
+              JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+              WHERE dp.id_orden = op.id_orden
+              AND dp.estado = 'Completado'
+              ORDER BY dp.fecha_final_proceso DESC
+              LIMIT 1
+            ) AS proceso_final
           FROM orden_produccion op
           JOIN cliente c ON op.id_cliente = c.id_cliente
           JOIN detalle_producto_orden dpo ON op.id_orden = dpo.id_orden
@@ -491,7 +512,7 @@ async getCompletedOrders() {
           COUNT(dpo.id_detalle) AS total_productos
         FROM order_info oi
         JOIN detalle_producto_orden dpo ON oi.id_orden = dpo.id_orden
-        GROUP BY oi.id_orden, oi.id_cliente, oi.nombre_cliente, oi.fecha_aproximada, oi.fecha_completado
+        GROUP BY oi.id_orden, oi.id_cliente, oi.nombre_cliente, oi.fecha_aproximada, oi.fecha_completado, oi.observaciones, oi.proceso_final
       `;
       
       const result = await db.query(query);
@@ -502,31 +523,31 @@ async getCompletedOrders() {
   }
 
   // Obtener el detalle de una orden completada
-async getCompletedOrderDetail(idOrden) {
-    try {
-      // Verificar primero si la orden está completada
-      const checkQuery = `
-        SELECT COUNT(*) AS total, 
-               COUNT(CASE WHEN dpo.estado = 'Entregado' THEN 1 END) AS completed
-        FROM detalle_producto_orden dpo
-        WHERE dpo.id_orden = $1
-      `;
-      
-      const checkResult = await db.query(checkQuery, [idOrden]);
-      
-      if (checkResult.rows[0].total !== checkResult.rows[0].completed) {
-        return {
-          success: false,
-          message: "Esta orden no está completamente entregada"
-        };
+  async getCompletedOrderDetail(idOrden) {
+      try {
+        // Verificar primero si la orden está completada
+        const checkQuery = `
+          SELECT COUNT(*) AS total, 
+                COUNT(CASE WHEN dpo.estado = 'Entregado' THEN 1 END) AS completed
+          FROM detalle_producto_orden dpo
+          WHERE dpo.id_orden = $1
+        `;
+        
+        const checkResult = await db.query(checkQuery, [idOrden]);
+        
+        if (checkResult.rows[0].total !== checkResult.rows[0].completed) {
+          return {
+            success: false,
+            message: "Esta orden no está completamente entregada"
+          };
+        }
+        
+        // Si está completada, obtener todos los detalles
+        return await this.getOrderDetail(idOrden);
+      } catch (error) {
+        throw new Error(`Error al obtener el detalle de la orden completada: ${error.message}`);
       }
-      
-      // Si está completada, obtener todos los detalles
-      return await this.getOrderDetail(idOrden);
-    } catch (error) {
-      throw new Error(`Error al obtener el detalle de la orden completada: ${error.message}`);
-    }
-}
+  }
 
 }
 
