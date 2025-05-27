@@ -126,9 +126,17 @@ const getOrderDetailsById = async (orderId) => {
     
     // Obtener productos de la orden
     const productsQuery = await pool.query(
-      `SELECT dpo.*, p.nombre_producto
+      `SELECT 
+        dpo.*, 
+        p.nombre_producto,
+        JSONB_BUILD_OBJECT(
+          'id_categoria', c.id_categoria,
+          'nombre_categoria', c.nombre_categoria,
+          'descripcion', c.descripcion
+        ) AS categoria
       FROM detalle_producto_orden dpo
       JOIN producto p ON dpo.id_producto = p.id_producto
+      JOIN categoria c ON p.id_categoria = c.id_categoria
       WHERE dpo.id_orden = $1`,
       [orderId]
     );
