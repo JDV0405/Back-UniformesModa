@@ -186,6 +186,39 @@ const OrderController = {
     }
   },
 
+  updateOrderWithClient: async (req, res) => {
+    try {
+      const { idOrden } = req.params;
+      const orderData = req.body;
+      
+      // Validar datos mínimos requeridos
+      if (!orderData.fecha_aproximada || !orderData.tipo_pago || !orderData.cedula_empleado_responsable) {
+        return res.status(400).json({
+          success: false,
+          message: 'Datos incompletos. Se requieren fecha aproximada, tipo de pago y empleado responsable'
+        });
+      }
+      
+      const updatedOrder = await OrderModel.updateOrderWithClient(idOrden, orderData);
+      
+      res.status(200).json({
+        success: true,
+        message: 'Orden y datos del cliente actualizados correctamente',
+        data: updatedOrder
+      });
+      
+    } catch (error) {
+      console.error('Error al actualizar orden y cliente:', error);
+      res.status(error.message === 'Orden no encontrada' ? 404 : 500).json({ 
+        success: false, 
+        message: error.message.includes('porque está siendo procesado') 
+          ? error.message 
+          : 'Error al actualizar la orden y datos del cliente',
+        error: error.message 
+      });
+    }
+  }
+
 
 
 
