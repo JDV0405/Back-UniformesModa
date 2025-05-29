@@ -152,13 +152,17 @@ const getOrderDetailsById = async (orderId) => {
     
     // Procesamiento de colores
     const colorsQuery = await pool.query(
-      `SELECT nombre_color, codigo_hex FROM color`
+      `SELECT id_color, nombre_color, codigo_hex FROM color`
     );
     
     const colorMap = {};
-    colorsQuery.rows.forEach(color => {
-      colorMap[color.nombre_color.toLowerCase()] = color.codigo_hex;
-    });
+      colorsQuery.rows.forEach(color => {
+        colorMap[color.nombre_color.toLowerCase()] = {
+          id_color: color.id_color,
+          codigo_hex: color.codigo_hex
+        };
+      });
+
     
     const productosConColores = productsQuery.rows.map(producto => {
       const productoConColor = { ...producto };
@@ -167,16 +171,24 @@ const getOrderDetailsById = async (orderId) => {
         const nombreColor = productoConColor.atributosusuario.color.toLowerCase();
         
         if (colorMap[nombreColor]) {
-          productoConColor.color_hex = colorMap[nombreColor];
+          productoConColor.color_hex = colorMap[nombreColor].codigo_hex;
+          productoConColor.color_id = colorMap[nombreColor].id_color;
         } else {
           const colorParcial = Object.keys(colorMap).find(color => 
             nombreColor.includes(color.toLowerCase()) || color.toLowerCase().includes(nombreColor)
           );
           
-          productoConColor.color_hex = colorParcial ? colorMap[colorParcial] : null;
+          if (colorParcial) {
+            productoConColor.color_hex = colorMap[colorParcial].codigo_hex;
+            productoConColor.color_id = colorMap[colorParcial].id_color;
+          } else {
+            productoConColor.color_hex = null;
+            productoConColor.color_id = null;
+          }
         }
       } else {
         productoConColor.color_hex = null;
+        productoConColor.color_id = null;
       }
       
       return productoConColor;

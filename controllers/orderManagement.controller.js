@@ -186,51 +186,55 @@ const OrderController = {
     }
   },
 
-  updateOrderWithClient: async (req, res) => {
+  updateOrder: async (req, res) => {
     try {
       const { idOrden } = req.params;
       const orderData = req.body;
       
-      // Validar datos mínimos requeridos
-      if (!orderData.fecha_aproximada || !orderData.tipo_pago || !orderData.cedula_empleado_responsable) {
+      // Validar que se proporcionó un ID de orden
+      if (!idOrden) {
         return res.status(400).json({
           success: false,
-          message: 'Datos incompletos. Se requieren fecha aproximada, tipo de pago y empleado responsable'
+          message: 'ID de orden no proporcionado'
         });
       }
       
-      const updatedOrder = await OrderModel.updateOrderWithClient(idOrden, orderData);
+      const updatedOrder = await OrderModel.updateOrder(idOrden, orderData);
       
       res.status(200).json({
         success: true,
-        message: 'Orden y datos del cliente actualizados correctamente',
+        message: 'Orden actualizada correctamente',
         data: updatedOrder
       });
       
     } catch (error) {
-      console.error('Error al actualizar orden y cliente:', error);
-      res.status(error.message === 'Orden no encontrada' ? 404 : 500).json({ 
+      console.error('Error al actualizar orden:', error);
+      
+      // Manejo específico de errores
+      if (error.message.includes('Orden no encontrada')) {
+        return res.status(404).json({
+          success: false,
+          message: 'Orden no encontrada',
+          error: error.message
+        });
+      }
+      
+      if (error.message.includes('no se puede eliminar el producto')) {
+        return res.status(400).json({
+          success: false,
+          message: 'No se puede eliminar uno o más productos',
+          error: error.message
+        });
+      }
+      
+      res.status(500).json({ 
         success: false, 
-        message: error.message.includes('porque está siendo procesado') 
-          ? error.message 
-          : 'Error al actualizar la orden y datos del cliente',
+        message: 'Error en el servidor', 
         error: error.message 
       });
     }
   }
-
-
-
-
-
-  
-
-
 };
-
-
-
-
 
 module.exports = {
   UserController,
