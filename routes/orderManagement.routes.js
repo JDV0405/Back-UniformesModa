@@ -419,6 +419,6 @@ router.get('/orders/:idOrden', OrderController.getOrderDetails);
  *       500:
  *         description: Error en el servidor
  */
-router.put('/updateorder/:idOrden', OrderController.updateOrder);
+router.put('/updateOrder/:idOrden', OrderController.updateOrder);
 
 module.exports = router;
