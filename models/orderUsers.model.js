@@ -206,5 +206,5 @@ const getOrderDetailsById = async (orderId) => {
 
 module.exports = {
   getOrdersByClientId,
-  getOrderDetailsById
+  getOrderDetailsById,
 };

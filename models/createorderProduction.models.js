@@ -235,6 +235,11 @@ async function addClientPhone(client, clientId, phoneNumber, phoneType) {
 }
 
 async function addClientAddress(client, clientId, address, cityId, departmentId) {
+    // Verificar que la dirección no sea nula
+    if (!address) {
+        throw new Error('La dirección del cliente es obligatoria');
+    }
+    
     if (departmentId) {
         const cityCheck = await client.query(
             'SELECT id_ciudad FROM ciudad WHERE id_ciudad = $1 AND id_departamento = $2',

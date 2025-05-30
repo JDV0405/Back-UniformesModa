@@ -134,4 +134,5 @@ router.get('/customer/:clienteId', orderUserController.getOrdersByClientId);
  */
 router.get('/:orderId', orderUserController.getOrderDetails);
 
+
 module.exports = router;
