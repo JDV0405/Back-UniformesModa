@@ -322,11 +322,13 @@ router.get('/orders/completed', OrderController.getCompletedOrders);
  */
 router.get('/orders/:idOrden', OrderController.getOrderDetails);
 
+
+
 /**
  * @swagger
- * /orders/{idOrden}/complete:
+ * /orders/{idOrden}:
  *   put:
- *     summary: Actualiza una orden de producción existente incluyendo información del cliente
+ *     summary: Actualiza una orden de producción existente
  *     tags: [Órdenes]
  *     security:
  *       - bearerAuth: []
@@ -353,8 +355,6 @@ router.get('/orders/:idOrden', OrderController.getOrderDetails);
  *                 type: integer
  *               observaciones:
  *                 type: string
- *               id_direccion:
- *                 type: integer
  *               cedula_empleado_responsable:
  *                 type: string
  *               cliente:
@@ -364,38 +364,22 @@ router.get('/orders/:idOrden', OrderController.getOrderDetails);
  *                     type: string
  *                   correo:
  *                     type: string
- *                   tipo:
- *                     type: string
- *                     enum: [Natural, Juridico]
  *                   tipo_doc:
  *                     type: string
  *                   profesion:
  *                     type: string
  *                   sector_economico:
  *                     type: string
- *               telefonos:
+ *               telefono:
  *                 type: object
  *                 properties:
- *                   agregar:
- *                     type: array
- *                     items:
- *                       type: object
- *                       properties:
- *                         id_telefono:
- *                           type: integer
- *                         telefono:
- *                           type: string
- *                         tipo:
- *                           type: string
- *                   eliminar:
- *                     type: array
- *                     items:
- *                       type: integer
+ *                   numero:
+ *                     type: string
+ *                   tipo:
+ *                     type: string
  *               direccion:
  *                 type: object
  *                 properties:
- *                   id_direccion:
- *                     type: integer
  *                   direccion:
  *                     type: string
  *                   id_ciudad:
@@ -413,27 +397,28 @@ router.get('/orders/:idOrden', OrderController.getOrderDetails);
  *                       type: integer
  *                     cantidad:
  *                       type: integer
- *                     atributosUsuario:
+ *                     atributosusuario:
  *                       type: object
  *                     bordado:
  *                       type: boolean
  *                     observacion:
  *                       type: string
- *               productosEliminar:
+ *                     url_producto:
+ *                       type: string
+ *               productos_eliminar:
  *                 type: array
  *                 items:
  *                   type: integer
  *     responses:
  *       200:
- *         description: Orden y datos del cliente actualizados exitosamente
+ *         description: Orden actualizada correctamente
  *       400:
- *         description: Datos incompletos o inválidos
- *       401:
- *         description: No autorizado - Token inválido o expirado
+ *         description: Datos inválidos o restricción de negocio
  *       404:
  *         description: Orden no encontrada
  *       500:
  *         description: Error en el servidor
  */
-router.put('/orders/:idOrden/complete', OrderController.updateOrderWithClient);
+router.put('/updateorder/:idOrden', OrderController.updateOrder);
+
 module.exports = router;
