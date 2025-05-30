@@ -64,7 +64,6 @@ const getOrderDetailsById = async (orderId) => {
        WHERE op.id_orden = $1`,
       [orderId]
     );
-    
     if (orderQuery.rows.length === 0) {
       return null;
     }
