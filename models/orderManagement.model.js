@@ -228,252 +228,299 @@ const OrderModel = {
     }
   },
 
-  updateOrderWithClient: async (idOrden, orderData) => {
+  updateOrder: async (idOrden, orderData) => {
     const client = await pool.connect();
     
     try {
       await client.query('BEGIN');
       
-      // 1. Obtenemos la orden actual para saber el cliente asociado
-      const existingOrder = await client.query(
-        'SELECT id_cliente FROM orden_produccion WHERE id_orden = $1',
+      // 1. Verificar que la orden existe
+      const checkOrderQuery = await client.query(
+        'SELECT id_orden, id_cliente FROM orden_produccion WHERE id_orden = $1',
         [idOrden]
       );
       
-      if (existingOrder.rows.length === 0) {
+      if (checkOrderQuery.rows.length === 0) {
         throw new Error('Orden no encontrada');
       }
       
-      const idCliente = existingOrder.rows[0].id_cliente;
+      const currentOrder = checkOrderQuery.rows[0];
+      const idCliente = currentOrder.id_cliente;
       
-      // 2. Actualizar datos del cliente si se proporcionan
-      if (orderData.cliente) {
-        const clienteQuery = `
-          UPDATE cliente 
-          SET nombre = $1, 
-              correo = $2
-          WHERE id_cliente = $3
-          RETURNING *
-        `;
+      // 2. Actualizar datos básicos de la orden
+      if (orderData.fecha_aproximada || orderData.tipo_pago || 
+          orderData.observaciones !== undefined || 
+          orderData.cedula_empleado_responsable || 
+          orderData.id_comprobante_pago) {
         
-        await client.query(clienteQuery, [
-          orderData.cliente.nombre,
-          orderData.cliente.correo,
-          idCliente
-        ]);
+        const updateFields = [];
+        const updateValues = [];
+        let paramCounter = 1;
         
-        // Actualizar datos específicos según tipo de cliente
-        if (orderData.cliente.tipo === 'Natural') {
+        if (orderData.fecha_aproximada) {
+          updateFields.push(`fecha_aproximada = $${paramCounter++}`);
+          updateValues.push(orderData.fecha_aproximada);
+        }
+        
+        if (orderData.tipo_pago) {
+          updateFields.push(`tipo_pago = $${paramCounter++}`);
+          updateValues.push(orderData.tipo_pago);
+        }
+        
+        if (orderData.observaciones !== undefined) {
+          updateFields.push(`observaciones = $${paramCounter++}`);
+          updateValues.push(orderData.observaciones);
+        }
+        
+        if (orderData.cedula_empleado_responsable) {
+          updateFields.push(`cedula_empleado_responsable = $${paramCounter++}`);
+          updateValues.push(orderData.cedula_empleado_responsable);
+        }
+        
+        if (orderData.id_comprobante_pago) {
+          updateFields.push(`id_comprobante_pago = $${paramCounter++}`);
+          updateValues.push(orderData.id_comprobante_pago);
+        }
+        
+        // Solo actualizamos si hay cambios
+        if (updateFields.length > 0) {
+          updateValues.push(idOrden); // Añadimos el ID de la orden como último parámetro
+          
           await client.query(
-            `UPDATE cli_natural 
-             SET tipo_doc = $1, profesion = $2 
-             WHERE id_cliente = $3`,
-            [orderData.cliente.tipo_doc, orderData.cliente.profesion, idCliente]
-          );
-        } else if (orderData.cliente.tipo === 'Juridico') {
-          await client.query(
-            `UPDATE juridico 
-             SET sector_economico = $1 
-             WHERE id_cliente = $2`,
-            [orderData.cliente.sector_economico, idCliente]
+            `UPDATE orden_produccion SET ${updateFields.join(', ')} WHERE id_orden = $${paramCounter}`,
+            updateValues
           );
         }
       }
       
-      // 3. Actualizar, crear o eliminar teléfonos del cliente
-      if (orderData.telefonos) {
-        // Agregar o actualizar teléfonos
-        for (const telefono of orderData.telefonos.agregar || []) {
-          if (telefono.id_telefono) {
-            // Actualizar existente
+      // 3. Actualizar información del cliente si se proporciona
+      if (orderData.cliente) {
+        if (orderData.cliente.nombre || orderData.cliente.correo) {
+          const updateClientFields = [];
+          const updateClientValues = [];
+          let clientParamCounter = 1;
+          
+          if (orderData.cliente.nombre) {
+            updateClientFields.push(`nombre = $${clientParamCounter++}`);
+            updateClientValues.push(orderData.cliente.nombre);
+          }
+          
+          if (orderData.cliente.correo) {
+            updateClientFields.push(`correo = $${clientParamCounter++}`);
+            updateClientValues.push(orderData.cliente.correo);
+          }
+          
+          if (updateClientFields.length > 0) {
+            updateClientValues.push(idCliente);
+            
             await client.query(
-              `UPDATE telefono_cliente 
-               SET telefono = $1, tipo = $2 
-               WHERE id_telefono = $3 AND id_cliente = $4`,
-              [telefono.telefono, telefono.tipo, telefono.id_telefono, idCliente]
-            );
-          } else {
-            // Añadir nuevo
-            await client.query(
-              `INSERT INTO telefono_cliente (id_cliente, telefono, tipo) 
-               VALUES ($1, $2, $3)`,
-              [idCliente, telefono.telefono, telefono.tipo]
+              `UPDATE cliente SET ${updateClientFields.join(', ')} WHERE id_cliente = $${clientParamCounter}`,
+              updateClientValues
             );
           }
         }
         
-        // Eliminar teléfonos
-        for (const idTelefono of orderData.telefonos.eliminar || []) {
+        // 3.1 Actualizar datos específicos según el tipo de cliente
+        const checkClientType = await client.query(
+          'SELECT tipo FROM cliente WHERE id_cliente = $1',
+          [idCliente]
+        );
+        
+        const clientType = checkClientType.rows[0]?.tipo?.trim();
+        
+        if (clientType === 'Natural') {
+          if (orderData.cliente.tipo_doc || orderData.cliente.profesion) {
+            const updateNaturalFields = [];
+            const updateNaturalValues = [];
+            let naturalParamCounter = 1;
+            
+            if (orderData.cliente.tipo_doc) {
+              updateNaturalFields.push(`tipo_doc = $${naturalParamCounter++}`);
+              updateNaturalValues.push(orderData.cliente.tipo_doc);
+            }
+            
+            if (orderData.cliente.profesion) {
+              updateNaturalFields.push(`profesion = $${naturalParamCounter++}`);
+              updateNaturalValues.push(orderData.cliente.profesion);
+            }
+            
+            if (updateNaturalFields.length > 0) {
+              updateNaturalValues.push(idCliente);
+              
+              await client.query(
+                `UPDATE cli_natural SET ${updateNaturalFields.join(', ')} WHERE id_cliente = $${naturalParamCounter}`,
+                updateNaturalValues
+              );
+            }
+          }
+        } else if (clientType === 'Juridico') {
+          if (orderData.cliente.sector_economico) {
+            await client.query(
+              'UPDATE juridico SET sector_economico = $1 WHERE id_cliente = $2',
+              [orderData.cliente.sector_economico, idCliente]
+            );
+          }
+        }
+      }
+      
+      // 4. Actualizar teléfono si se proporciona
+      if (orderData.telefono) {
+        // Verificar si el cliente ya tiene teléfono
+        const checkPhone = await client.query(
+          'SELECT id_telefono FROM telefono_cliente WHERE id_cliente = $1 LIMIT 1',
+          [idCliente]
+        );
+        
+        if (checkPhone.rows.length > 0) {
+          // Actualizar teléfono existente
           await client.query(
-            'DELETE FROM telefono_cliente WHERE id_telefono = $1 AND id_cliente = $2',
-            [idTelefono, idCliente]
+            'UPDATE telefono_cliente SET telefono = $1, tipo = $2 WHERE id_telefono = $3',
+            [orderData.telefono.numero, orderData.telefono.tipo, checkPhone.rows[0].id_telefono]
+          );
+        } else {
+          // Crear nuevo teléfono
+          await client.query(
+            'INSERT INTO telefono_cliente (id_cliente, telefono, tipo) VALUES ($1, $2, $3)',
+            [idCliente, orderData.telefono.numero, orderData.telefono.tipo || 'Móvil']
           );
         }
       }
       
-      // 4. Actualizar o crear dirección
+      // 5. Actualizar dirección si se proporciona
       if (orderData.direccion) {
-        if (orderData.direccion.id_direccion) {
+        if (orderData.id_direccion) {
           // Actualizar dirección existente
           await client.query(
-            `UPDATE direccion 
-             SET direccion = $1, id_ciudad = $2, observaciones = $3 
-             WHERE id_direccion = $4 AND id_cliente = $5`,
+            'UPDATE direccion SET direccion = $1, id_ciudad = $2, observaciones = $3 WHERE id_direccion = $4',
             [
               orderData.direccion.direccion,
               orderData.direccion.id_ciudad,
-              orderData.direccion.observaciones,
-              orderData.direccion.id_direccion,
-              idCliente
+              orderData.direccion.observaciones || '',
+              orderData.id_direccion
             ]
           );
         } else {
           // Crear nueva dirección
-          const nuevaDireccion = await client.query(
-            `INSERT INTO direccion (id_cliente, direccion, id_ciudad, observaciones) 
-             VALUES ($1, $2, $3, $4) RETURNING id_direccion`,
+          const newAddressResult = await client.query(
+            'INSERT INTO direccion (id_cliente, direccion, id_ciudad, observaciones) VALUES ($1, $2, $3, $4) RETURNING id_direccion',
             [
               idCliente, 
               orderData.direccion.direccion, 
-              orderData.direccion.id_ciudad, 
-              orderData.direccion.observaciones
+              orderData.direccion.id_ciudad,
+              orderData.direccion.observaciones || ''
             ]
           );
           
           // Actualizar la orden con la nueva dirección
-          if (nuevaDireccion.rows[0]) {
-            orderData.id_direccion = nuevaDireccion.rows[0].id_direccion;
-          }
+          await client.query(
+            'UPDATE orden_produccion SET id_direccion = $1 WHERE id_orden = $2',
+            [newAddressResult.rows[0].id_direccion, idOrden]
+          );
         }
       }
       
-      // 5. Actualizar datos básicos de la orden
-      const orderQuery = `
-        UPDATE orden_produccion 
-        SET 
-          fecha_aproximada = $1,
-          tipo_pago = $2,
-          id_comprobante_pago = $3,
-          observaciones = $4,
-          id_direccion = $5,
-          cedula_empleado_responsable = $6
-        WHERE id_orden = $7
-        RETURNING *
-      `;
-      
-      await client.query(orderQuery, [
-        orderData.fecha_aproximada,
-        orderData.tipo_pago,
-        orderData.id_comprobante_pago,
-        orderData.observaciones,
-        orderData.id_direccion,
-        orderData.cedula_empleado_responsable,
-        idOrden
-      ]);
-      
-      // 6. Actualizar productos de la orden
+      // 6. Actualizar productos (modificar existentes, añadir nuevos)
       if (orderData.productos && Array.isArray(orderData.productos)) {
         for (const producto of orderData.productos) {
           if (producto.id_detalle) {
-            // Actualizar producto existente
-            await client.query(
-              `UPDATE detalle_producto_orden
-               SET cantidad = $1,
-                   atributosUsuario = $2,
-                   bordado = $3,
-                   observacion = $4
-               WHERE id_detalle = $5 AND id_orden = $6`,
-              [
-                producto.cantidad,
-                producto.atributosUsuario,
-                producto.bordado,
-                producto.observacion,
-                producto.id_detalle,
-                idOrden
-              ]
-            );
+            // Producto existente - actualizar
+            const updateProductFields = [];
+            const updateProductValues = [];
+            let productParamCounter = 1;
+            
+            if (producto.cantidad) {
+              updateProductFields.push(`cantidad = $${productParamCounter++}`);
+              updateProductValues.push(producto.cantidad);
+            }
+            
+            if (producto.atributosusuario) {
+              updateProductFields.push(`atributosusuario = $${productParamCounter++}`);
+              updateProductValues.push(producto.atributosusuario);
+            }
+            
+            if (producto.bordado !== undefined) {
+              updateProductFields.push(`bordado = $${productParamCounter++}`);
+              updateProductValues.push(producto.bordado);
+            }
+            
+            if (producto.observacion !== undefined) {
+              updateProductFields.push(`observacion = $${productParamCounter++}`);
+              updateProductValues.push(producto.observacion);
+            }
+            
+            if (producto.url_producto !== undefined) {
+              updateProductFields.push(`url_producto = $${productParamCounter++}`);
+              updateProductValues.push(producto.url_producto);
+            }
+            
+            if (updateProductFields.length > 0) {
+              updateProductValues.push(producto.id_detalle);
+              updateProductValues.push(idOrden);
+              
+              await client.query(
+                `UPDATE detalle_producto_orden 
+                SET ${updateProductFields.join(', ')} 
+                WHERE id_detalle = $${productParamCounter++} 
+                AND id_orden = $${productParamCounter}`, // CORREGIDO: Usar productParamCounter
+                updateProductValues
+              );
+            }
           } else {
-            // Insertar nuevo producto
+            // Producto nuevo - insertar
             await client.query(
-              `INSERT INTO detalle_producto_orden
-                (id_orden, id_producto, cantidad, atributosUsuario, bordado, observacion, estado)
-               VALUES
-                ($1, $2, $3, $4, $5, $6, 'En Producción')`,
+              `INSERT INTO detalle_producto_orden 
+              (id_orden, id_producto, cantidad, atributosusuario, bordado, observacion, url_producto, estado) 
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
               [
                 idOrden,
                 producto.id_producto,
-                producto.cantidad,
-                producto.atributosUsuario,
-                producto.bordado,
-                producto.observacion
+                producto.cantidad || 1,
+                producto.atributosusuario || {},
+                producto.bordado || false,
+                producto.observacion || '',
+                producto.url_producto || null,
+                'En Producción'
               ]
             );
           }
         }
       }
       
-      // 7. Eliminar productos si se proporciona lista de IDs
-      if (orderData.productosEliminar && Array.isArray(orderData.productosEliminar)) {
-        for (const idDetalle of orderData.productosEliminar) {
-          // Verificar si el producto está siendo procesado
-          const checkResult = await client.query(
-            `SELECT EXISTS(
-               SELECT 1 FROM producto_proceso pp
-               JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
-               WHERE pp.id_detalle_producto = $1 AND dp.estado = 'En Proceso'
-             ) as en_proceso`,
+      // 7. Eliminar productos si se proporciona un array de IDs a eliminar
+      if (orderData.productos_eliminar && Array.isArray(orderData.productos_eliminar)) {
+        for (const idDetalle of orderData.productos_eliminar) {
+          // Verificar si el producto puede ser eliminado
+          const productProcessCheck = await client.query(
+            `SELECT COUNT(*) FROM producto_proceso pp 
+            WHERE pp.id_detalle_producto = $1`,
             [idDetalle]
           );
           
-          if (checkResult.rows[0].en_proceso) {
-            throw new Error(`No se puede eliminar el producto con ID ${idDetalle} porque está siendo procesado actualmente`);
+          if (parseInt(productProcessCheck.rows[0].count) === 0) {
+            // Si no tiene procesos asociados, se puede eliminar
+            await client.query(
+              'DELETE FROM detalle_producto_orden WHERE id_detalle = $1 AND id_orden = $2',
+              [idDetalle, idOrden]
+            );
+          } else {
+            // Si tiene procesos asociados, no se puede eliminar directamente
+            throw new Error(`No se puede eliminar el producto con ID ${idDetalle} porque tiene procesos asociados.`);
           }
-          
-          // Eliminar el producto
-          await client.query(
-            'DELETE FROM detalle_producto_orden WHERE id_detalle = $1 AND id_orden = $2', 
-            [idDetalle, idOrden]
-          );
         }
       }
       
       await client.query('COMMIT');
       
-      // Obtener datos actualizados de la orden con información del cliente
-      const orderDetails = await OrderModel.getOrderDetails(idOrden);
-      
-      // Obtener teléfonos del cliente
-      const phonesResult = await pool.query(
-        'SELECT id_telefono, telefono, tipo FROM telefono_cliente WHERE id_cliente = $1',
-        [idCliente]
-      );
-      
-      // Obtener direcciones del cliente
-      const addressesResult = await pool.query(
-        `SELECT d.id_direccion, d.direccion, d.observaciones, 
-                c.id_ciudad, c.ciudad, dep.id_departamento, dep.nombre as departamento
-         FROM direccion d
-         JOIN ciudad c ON d.id_ciudad = c.id_ciudad
-         JOIN departamento dep ON c.id_departamento = dep.id_departamento
-         WHERE d.id_cliente = $1`,
-        [idCliente]
-      );
-      
-      // Combinar toda la información
-      return {
-        ...orderDetails,
-        telefonos: phonesResult.rows,
-        direcciones: addressesResult.rows
-      };
+      // Obtener la orden actualizada para devolverla
+      return await OrderModel.getOrderDetails(idOrden);
       
     } catch (error) {
       await client.query('ROLLBACK');
-      throw new Error(`Error al actualizar la orden y cliente: ${error.message}`);
+      throw new Error(`Error al actualizar la orden: ${error.message}`);
     } finally {
       client.release();
     }
   }
-
 
 
 };

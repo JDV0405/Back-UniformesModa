@@ -153,6 +153,7 @@ const getOrderDetailsById = async (orderId) => {
     // Procesamiento de colores - MODIFICADO para incluir id_color
     const colorsQuery = await pool.query(
       `SELECT id_color, nombre_color, codigo_hex FROM color`
+      `SELECT id_color, nombre_color, codigo_hex FROM color`
     );
     
     const colorMap = {};
