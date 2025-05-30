@@ -1,10 +1,5 @@
 const usuarioModel = require('../models/orderUsers.model.js');
 
-/**
- * Obtiene todas las órdenes asociadas a un ID de cliente
- * @param {Object} req - Objeto de solicitud Express
- * @param {Object} res - Objeto de respuesta Express
- */
 const getOrdersByClientId = async (req, res) => {
   try {
     const { clienteId } = req.params;
@@ -42,11 +37,6 @@ const getOrdersByClientId = async (req, res) => {
   }
 };
 
-/**
- * Obtiene los detalles completos de una orden específica
- * @param {Object} req - Objeto de solicitud Express
- * @param {Object} res - Objeto de respuesta Express
- */
 const getOrderDetails = async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -84,5 +74,5 @@ const getOrderDetails = async (req, res) => {
 
 module.exports = {
   getOrdersByClientId,
-  getOrderDetails
+  getOrderDetails,
 };
