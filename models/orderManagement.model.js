@@ -365,9 +365,9 @@ const OrderModel = {
       
       // 4. Actualizar teléfono si se proporciona
       if (orderData.telefono) {
-        // Verificar si el cliente ya tiene teléfono
+        // Verificar si el cliente ya tiene teléfono - buscar específicamente por número
         const checkPhone = await client.query(
-          'SELECT id_telefono FROM telefono_cliente WHERE id_cliente = $1 LIMIT 1',
+          'SELECT id_telefono FROM telefono_cliente WHERE id_cliente = $1 ORDER BY id_telefono DESC LIMIT 1',
           [idCliente]
         );
         
@@ -377,6 +377,9 @@ const OrderModel = {
             'UPDATE telefono_cliente SET telefono = $1, tipo = $2 WHERE id_telefono = $3',
             [orderData.telefono.numero, orderData.telefono.tipo, checkPhone.rows[0].id_telefono]
           );
+          
+          // Log para depuración
+          console.log(`Teléfono actualizado: ${orderData.telefono.numero} para cliente ${idCliente}`);
         } else {
           // Crear nuevo teléfono
           await client.query(
@@ -508,7 +511,10 @@ const OrderModel = {
           }
         }
       }
-      
+      const phoneCheck = await client.query(
+        'SELECT telefono FROM telefono_cliente WHERE id_cliente = $1',
+        [idCliente]
+      );
       await client.query('COMMIT');
       
       // Obtener la orden actualizada para devolverla
