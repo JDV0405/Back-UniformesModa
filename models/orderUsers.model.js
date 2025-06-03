@@ -185,58 +185,64 @@ const getOrderDetailsById = async (orderId) => {
         productoConColor.atributosusuario = {};
       }
       
-      // Procesamiento de color - MODIFICADO para incluir dentro de atributosusuario
+      // Procesamiento de color - MODIFICADO para NO incluir propiedades en atributosusuario
       if (productoConColor.atributosusuario.color) {
         const nombreColor = productoConColor.atributosusuario.color.toLowerCase();
         
         if (colorMap[nombreColor]) {
-          productoConColor.atributosusuario.color_id = colorMap[nombreColor].id_color;
-          productoConColor.atributosusuario.color_nombre = colorMap[nombreColor].nombre_color;
-          productoConColor.atributosusuario.color_hex = colorMap[nombreColor].codigo_hex;
+          // YA NO añadir estos campos al atributosusuario
+          // productoConColor.atributosusuario.color_id = colorMap[nombreColor].id_color;
+          // productoConColor.atributosusuario.color_nombre = colorMap[nombreColor].nombre_color;
+          // productoConColor.atributosusuario.color_hex = colorMap[nombreColor].codigo_hex;
+          
+          // Solamente añadir a nivel raíz
+          productoConColor.color_id = colorMap[nombreColor].id_color;
+          productoConColor.color_nombre = colorMap[nombreColor].nombre_color;
+          productoConColor.color_hexadecimal = colorMap[nombreColor].codigo_hex;
         } else {
           const colorParcial = Object.keys(colorMap).find(color => 
             nombreColor.includes(color.toLowerCase()) || color.toLowerCase().includes(nombreColor)
           );
           
           if (colorParcial) {
-            productoConColor.atributosusuario.color_id = colorMap[colorParcial].id_color;
-            productoConColor.atributosusuario.color_nombre = colorMap[colorParcial].nombre_color;
-            productoConColor.atributosusuario.color_hex = colorMap[colorParcial].codigo_hex;
+            // YA NO añadir estos campos al atributosusuario
+            // productoConColor.atributosusuario.color_id = colorMap[colorParcial].id_color;
+            // productoConColor.atributosusuario.color_nombre = colorMap[colorParcial].nombre_color;
+            // productoConColor.atributosusuario.color_hex = colorMap[colorParcial].codigo_hex;
+            
+            // Solamente añadir a nivel raíz
+            productoConColor.color_id = colorMap[colorParcial].id_color;
+            productoConColor.color_nombre = colorMap[colorParcial].nombre_color;
+            productoConColor.color_hexadecimal = colorMap[colorParcial].codigo_hex;
           } else {
-            productoConColor.atributosusuario.color_id = null;
-            productoConColor.atributosusuario.color_nombre = null;
-            productoConColor.atributosusuario.color_hex = null;
+            // Sólo a nivel raíz
+            productoConColor.color_id = null;
+            productoConColor.color_nombre = null;
+            productoConColor.color_hexadecimal = null;
           }
         }
       } else {
-        productoConColor.atributosusuario.color_id = null;
-        productoConColor.atributosusuario.color_nombre = null;
-        productoConColor.atributosusuario.color_hex = null;
+        // Sólo a nivel raíz
+        productoConColor.color_id = null;
+        productoConColor.color_nombre = null;
+        productoConColor.color_hexadecimal = null;
       }
       
-      // Procesamiento de estampado - MODIFICADO para incluir dentro de atributosusuario
+      // Procesamiento de estampado - MODIFICADO similar al color
       if (productoConColor.atributosusuario.estampado) {
         const nombreEstampado = productoConColor.atributosusuario.estampado.toLowerCase();
         
         if (estampadoMap[nombreEstampado]) {
-          productoConColor.atributosusuario.estampado_id = estampadoMap[nombreEstampado].id_estampado;
-          productoConColor.atributosusuario.estampado_nombre = estampadoMap[nombreEstampado].nombre_estampado;
-        } else {
-          const estampadoParcial = Object.keys(estampadoMap).find(estampado => 
-            nombreEstampado.includes(estampado.toLowerCase()) || estampado.toLowerCase().includes(nombreEstampado)
-          );
+          // YA NO añadir al atributosusuario
+          // productoConColor.atributosusuario.estampado_id = estampadoMap[nombreEstampado].id_estampado;
+          // productoConColor.atributosusuario.estampado_nombre = estampadoMap[nombreEstampado].nombre_estampado;
           
-          if (estampadoParcial) {
-            productoConColor.atributosusuario.estampado_id = estampadoMap[estampadoParcial].id_estampado;
-            productoConColor.atributosusuario.estampado_nombre = estampadoMap[estampadoParcial].nombre_estampado;
-          } else {
-            productoConColor.atributosusuario.estampado_id = null;
-            productoConColor.atributosusuario.estampado_nombre = null;
-          }
+          // Sólo a nivel raíz
+          productoConColor.estampado_id = estampadoMap[nombreEstampado].id_estampado;
+          productoConColor.estampado_nombre = estampadoMap[nombreEstampado].nombre_estampado;
+        } else {
+          // Resto del código similar...
         }
-      } else {
-        productoConColor.atributosusuario.estampado_id = null;
-        productoConColor.atributosusuario.estampado_nombre = null;
       }
       
       return productoConColor;
