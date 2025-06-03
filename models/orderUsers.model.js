@@ -190,10 +190,6 @@ const getOrderDetailsById = async (orderId) => {
         const nombreColor = productoConColor.atributosusuario.color.toLowerCase();
         
         if (colorMap[nombreColor]) {
-          // YA NO añadir estos campos al atributosusuario
-          // productoConColor.atributosusuario.color_id = colorMap[nombreColor].id_color;
-          // productoConColor.atributosusuario.color_nombre = colorMap[nombreColor].nombre_color;
-          // productoConColor.atributosusuario.color_hex = colorMap[nombreColor].codigo_hex;
           
           // Solamente añadir a nivel raíz
           productoConColor.color_id = colorMap[nombreColor].id_color;
@@ -205,10 +201,6 @@ const getOrderDetailsById = async (orderId) => {
           );
           
           if (colorParcial) {
-            // YA NO añadir estos campos al atributosusuario
-            // productoConColor.atributosusuario.color_id = colorMap[colorParcial].id_color;
-            // productoConColor.atributosusuario.color_nombre = colorMap[colorParcial].nombre_color;
-            // productoConColor.atributosusuario.color_hex = colorMap[colorParcial].codigo_hex;
             
             // Solamente añadir a nivel raíz
             productoConColor.color_id = colorMap[colorParcial].id_color;
@@ -233,9 +225,6 @@ const getOrderDetailsById = async (orderId) => {
         const nombreEstampado = productoConColor.atributosusuario.estampado.toLowerCase();
         
         if (estampadoMap[nombreEstampado]) {
-          // YA NO añadir al atributosusuario
-          // productoConColor.atributosusuario.estampado_id = estampadoMap[nombreEstampado].id_estampado;
-          // productoConColor.atributosusuario.estampado_nombre = estampadoMap[nombreEstampado].nombre_estampado;
           
           // Sólo a nivel raíz
           productoConColor.estampado_id = estampadoMap[nombreEstampado].id_estampado;
