@@ -379,7 +379,6 @@ const OrderModel = {
           );
           
           // Log para depuración
-          console.log(`Teléfono actualizado: ${orderData.telefono.numero} para cliente ${idCliente}`);
         } else {
           // Crear nuevo teléfono
           await client.query(
