@@ -2,9 +2,9 @@ const pool = require('../database/db.js');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
-
-async function createOrder(orderData, clientData, products, paymentInfo, paymentProofFile) {
+async function createOrder(orderData, clientData, products, paymentInfo, paymentProofFile , productFiles) {
     const client = await pool.connect();
     
     try {
@@ -52,9 +52,23 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
         
         const processId = processResult.rows[0].id_detalle_proceso;
         
-        // 7. Add products to order
+        // 7. Add products to order with images
         const productDetails = [];
-        for (const product of products) {
+        for (let i = 0; i < products.length; i++) {
+            const product = products[i];
+            
+            // Buscar archivos de imágenes para este producto específico
+            const productImageFiles = productFiles ? productFiles.filter(file => 
+                file.fieldname === `productImages_${i}` || 
+                file.fieldname === `productImages[${i}]`
+            ) : [];
+            
+            // Guardar imágenes del producto si existen
+            let productImageUrls = [];
+            if (productImageFiles.length > 0) {
+                productImageUrls = await saveProductImages(productImageFiles, product.idProducto, orderId);
+            }
+            
             // Insertar el producto en detalle_producto_orden
             const detailId = await addProductToOrder(
                 client,
@@ -64,7 +78,7 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 product.atributosUsuario,
                 product.bordado,
                 product.observacion,
-                product.urlProducto
+                productImageUrls
             );
             
             // Insertar el proceso inicial en producto_proceso
@@ -89,10 +103,11 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 atributosusuario: product.atributosUsuario,
                 bordado: product.bordado,
                 observacion: product.observacion,
-                url_producto: product.urlProducto,
+                url_producto: productImageUrls.join(','), // Unir URLs con comas
+                imagenes: productImageUrls, // Array de URLs de imágenes
                 estado: 'En Producción',
                 nombre_producto: productResult.rows[0]?.nombre_producto || 'Producto sin nombre',
-                id_proceso_actual: initialProcessId // Proceso inicial
+                id_proceso_actual: initialProcessId
             });
         }
         
@@ -156,16 +171,103 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
     }
 }
 
-async function addProductToOrder(client, orderId, productId, quantity, userAttributes, hasBrodery, observations, productUrl) {
+async function saveProductImages(files, productId, orderId) {
+// Crear directorio en el escritorio para las imágenes de productos
+const desktopDir = require('os').homedir() + '/Desktop';
+const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'productos');
+
+// Ensure directory exists
+if (!fs.existsSync(uploadsDir)){
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const savedImages = [];
+
+for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const timestamp = Date.now();
+    const filename = `producto_${productId}_orden_${orderId}_${timestamp}_${i}_${file.originalname}`;
+    const filepath = path.join(uploadsDir, filename);
+    
+    // Create a writable stream
+    const writeStream = fs.createWriteStream(filepath);
+    
+    await new Promise((resolve, reject) => {
+        writeStream.write(file.buffer);
+        writeStream.end();
+        
+        writeStream.on('finish', () => {
+            resolve();
+        });
+        
+        writeStream.on('error', (err) => {
+            reject(err);
+        });
+    });
+    
+    // Guardar ruta relativa para la base de datos
+    const relativePath = `Uniformes_Imagenes/productos/${filename}`;
+    savedImages.push(relativePath);
+}
+
+return savedImages;
+}
+
+async function addProductToOrder(client, orderId, productId, quantity, userAttributes, hasBrodery, observations, productImages) {
+    // Procesar las URLs de las imágenes (convertir array a string separado por comas)
+    const imageUrls = Array.isArray(productImages) ? productImages.join(',') : productImages;
+    
     const result = await client.query(
         `INSERT INTO detalle_producto_orden(
             id_orden, id_producto, cantidad, atributosUsuario, 
             bordado, observacion, url_producto
         ) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING id_detalle`,
-        [orderId, productId, quantity, userAttributes, hasBrodery, observations, productUrl]
+        [orderId, productId, quantity, userAttributes, hasBrodery, observations, imageUrls]
     );
     
     return result.rows[0].id_detalle;
+}
+
+async function savePaymentProof(file) {
+    // Cambiar ruta al escritorio
+    const desktopDir = require('os').homedir() + '/Desktop';
+    const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'comprobantes');
+    
+    // Ensure directory exists
+    if (!fs.existsSync(uploadsDir)){
+        fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    
+    const timestamp = Date.now();
+    const filename = `comprobante_${timestamp}_${file.originalname}`;
+    const filepath = path.join(uploadsDir, filename);
+    
+    // Create a writable stream
+    const writeStream = fs.createWriteStream(filepath);
+    
+    return new Promise((resolve, reject) => {
+        // Write file
+        writeStream.write(file.buffer);
+        writeStream.end();
+        
+        writeStream.on('finish', () => {
+            // Devolver ruta relativa
+            resolve(`Uniformes_Imagenes/comprobantes/${filename}`);
+        });
+        
+        writeStream.on('error', (err) => {
+            reject(err);
+        });
+    });
+}
+
+async function createPaymentProof(client, filePath) {
+    const result = await client.query(
+        'INSERT INTO comprobante_pago(url_comprobante, activo) VALUES($1, true) RETURNING id_comprobante_pago',
+        [filePath]
+    );
+    
+    return result.rows[0].id_comprobante_pago;
 }
 
 async function createOrUpdateClient(client, clientData) {
@@ -266,44 +368,7 @@ async function addClientAddress(client, clientId, address, cityId, departmentId)
     return addressResult.rows[0].id_direccion;
 }
 
-async function savePaymentProof(file) {
-    const uploadsDir = path.join(__dirname, '../uploads/comprobantes');
-    
-    // Ensure directory exists
-    if (!fs.existsSync(uploadsDir)){
-        fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-    
-    const timestamp = Date.now();
-    const filename = `comprobante_${timestamp}_${file.originalname}`;
-    const filepath = path.join(uploadsDir, filename);
-    
-    // Create a writable stream
-    const writeStream = fs.createWriteStream(filepath);
-    
-    return new Promise((resolve, reject) => {
-        // Write file
-        writeStream.write(file.buffer);
-        writeStream.end();
-        
-        writeStream.on('finish', () => {
-            resolve(`/uploads/comprobantes/${filename}`);
-        });
-        
-        writeStream.on('error', (err) => {
-            reject(err);
-        });
-    });
-}
 
-async function createPaymentProof(client, filePath) {
-    const result = await client.query(
-        'INSERT INTO comprobante_pago(url_comprobante, activo) VALUES($1, true) RETURNING id_comprobante_pago',
-        [filePath]
-    );
-    
-    return result.rows[0].id_comprobante_pago;
-}
 async function createProductionOrder(client, clientId, dueDate, paymentType, comprobanteId, observations, employeeId, direccionId) {
     const result = await client.query(
         `INSERT INTO orden_produccion(
@@ -459,5 +524,6 @@ async function deleteOrder(orderId) {
 module.exports = {
     createOrder,
     deleteProductFromOrder,
-    deleteOrder
+    deleteOrder,
+    saveProductImages
 };
