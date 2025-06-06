@@ -1,21 +1,65 @@
 const orderModel = require('../models/createorderProduction.models');
 const multer = require('multer');
 const pool = require('../database/db.js');
-const upload = multer({ storage: multer.memoryStorage() });
 
-const uploadMiddleware = upload.single('comprobanteFile');
+// Configurar multer para manejar múltiples archivos
+const storage = multer.memoryStorage();
+const upload = multer({ 
+    storage: storage,
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB por archivo
+        files: 20 // Máximo 20 archivos
+    }
+});
+
+// Middleware para manejar múltiples tipos de archivos
+const uploadMiddleware = upload.fields([
+    { name: 'comprobanteFile', maxCount: 1 }, // Comprobante de pago
+    { name: 'productImages', maxCount: 10 }, // Imágenes de productos (genérico)
+    // Campos dinámicos para imágenes por producto
+    { name: 'productImages_0', maxCount: 5 },
+    { name: 'productImages_1', maxCount: 5 },
+    { name: 'productImages_2', maxCount: 5 },
+    { name: 'productImages_3', maxCount: 5 },
+    { name: 'productImages_4', maxCount: 5 }
+]);
 
 async function createOrder(req, res) {
     try {
+        // ✅ PARSEAR JSON STRINGS SI VIENEN DE FORMDATA
+        if (typeof req.body.customer === 'string') {
+            try {
+                req.body.customer = JSON.parse(req.body.customer);
+            } catch (e) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Error al parsear datos del cliente"
+                });
+            }
+        }
+        if (typeof req.body.products === 'string') {
+            try {
+                req.body.products = JSON.parse(req.body.products);
+            } catch (e) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Error al parsear datos de productos"
+                });
+            }
+        }
+
         // Check if we're receiving the new nested structure
         const isNewFormat = req.body.customer && req.body.products;
-        
+        console.log('isNewFormat:', isNewFormat);
         let employeeId, orderData, clientData, products, paymentInfo;
         
         if (isNewFormat) {
             // Process new JSON format
             const customerData = req.body.customer || {};
             const productsData = req.body.products || [];
+            
+            console.log('customerData parsed:', customerData);
+            console.log('productsData parsed:', productsData);
             
             // Validate employee ID
             if (!customerData.advisor) {
@@ -56,13 +100,13 @@ async function createOrder(req, res) {
                 direccion: customerData.address,
                 idCiudad: customerData.ciudadId,
                 idDepartamento: customerData.departamentoId,
-                departamento: customerData.departamento,  // Send department name
-                ciudad: customerData.ciudad,              // Send city name
+                departamento: customerData.departamento,
+                ciudad: customerData.ciudad,
             };
             
             // Add client type specific data
             if (clientData.tipo === 'Natural') {
-                clientData.tipoDoc = 'Cedula de Ciudadania';  // Default value
+                clientData.tipoDoc = 'Cedula de Ciudadania';
                 clientData.profesion = customerData.profession || '';
             } else {
                 clientData.sectorEconomico = customerData.sector || '';
@@ -73,14 +117,14 @@ async function createOrder(req, res) {
                 idProducto: product.id,
                 cantidad: product.quantity,
                 atributosUsuario: product.fields || {},
-                bordado: false,  // Default value
+                bordado: false,
                 observacion: product.observaciones || '',
                 urlProducto: null
             }));
             
             // Set payment info
             paymentInfo = {
-                tipoPago: req.body.paymentType || 'credito'  // Default to credit
+                tipoPago: req.body.paymentType || 'credito'
             };
             
         } else {
@@ -166,6 +210,26 @@ async function createOrder(req, res) {
                 clientData.ciudad = cityResult.rows[0].ciudad;
             }
         }
+
+        // Extraer archivos de imágenes de productos
+        const productFiles = [];
+        if (req.files) {
+            // Recopilar todos los archivos de imágenes de productos
+            Object.keys(req.files).forEach(fieldName => {
+                if (fieldName.startsWith('productImages')) {
+                    req.files[fieldName].forEach(file => {
+                        file.fieldname = fieldName; // Preservar nombre del campo
+                        productFiles.push(file);
+                    });
+                }
+            });
+        }
+        
+        // Obtener archivo de comprobante
+        let paymentProofFile = null;
+        if (req.files && req.files.comprobanteFile) {
+            paymentProofFile = req.files.comprobanteFile[0];
+        }
         
         // Create the order with all the prepared data
         const result = await orderModel.createOrder(
@@ -173,7 +237,8 @@ async function createOrder(req, res) {
             clientData,
             products,
             paymentInfo,
-            req.file
+            paymentProofFile,
+            productFiles
         );
         
         res.status(200).json(result);
