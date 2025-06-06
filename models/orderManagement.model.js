@@ -363,25 +363,19 @@ const OrderModel = {
         }
       }
       
-      // 4. Actualizar teléfono si se proporciona
       if (orderData.telefono) {
-        // Verificar si el cliente ya tiene teléfono - buscar específicamente por número
         const checkPhone = await client.query(
           'SELECT id_telefono FROM telefono_cliente WHERE id_cliente = $1 ORDER BY id_telefono DESC LIMIT 1',
           [idCliente]
         );
         
         if (checkPhone.rows.length > 0) {
-          // Actualizar teléfono existente
           await client.query(
             'UPDATE telefono_cliente SET telefono = $1, tipo = $2 WHERE id_telefono = $3',
             [orderData.telefono.numero, orderData.telefono.tipo, checkPhone.rows[0].id_telefono]
           );
           
-          // Log para depuración
-          console.log(`Teléfono actualizado: ${orderData.telefono.numero} para cliente ${idCliente}`);
         } else {
-          // Crear nuevo teléfono
           await client.query(
             'INSERT INTO telefono_cliente (id_cliente, telefono, tipo) VALUES ($1, $2, $3)',
             [idCliente, orderData.telefono.numero, orderData.telefono.tipo || 'Móvil']
@@ -389,10 +383,8 @@ const OrderModel = {
         }
       }
       
-      // 5. Actualizar dirección si se proporciona
       if (orderData.direccion) {
         if (orderData.id_direccion) {
-          // Actualizar dirección existente
           await client.query(
             'UPDATE direccion SET direccion = $1, id_ciudad = $2, observaciones = $3 WHERE id_direccion = $4',
             [
@@ -403,7 +395,6 @@ const OrderModel = {
             ]
           );
         } else {
-          // Crear nueva dirección
           const newAddressResult = await client.query(
             'INSERT INTO direccion (id_cliente, direccion, id_ciudad, observaciones) VALUES ($1, $2, $3, $4) RETURNING id_direccion',
             [
@@ -414,7 +405,6 @@ const OrderModel = {
             ]
           );
           
-          // Actualizar la orden con la nueva dirección
           await client.query(
             'UPDATE orden_produccion SET id_direccion = $1 WHERE id_orden = $2',
             [newAddressResult.rows[0].id_direccion, idOrden]
@@ -422,11 +412,9 @@ const OrderModel = {
         }
       }
       
-      // 6. Actualizar productos (modificar existentes, añadir nuevos)
       if (orderData.productos && Array.isArray(orderData.productos)) {
         for (const producto of orderData.productos) {
           if (producto.id_detalle) {
-            // Producto existente - actualizar
             const updateProductFields = [];
             const updateProductValues = [];
             let productParamCounter = 1;
@@ -464,7 +452,7 @@ const OrderModel = {
                 `UPDATE detalle_producto_orden 
                 SET ${updateProductFields.join(', ')} 
                 WHERE id_detalle = $${productParamCounter++} 
-                AND id_orden = $${productParamCounter}`, // CORREGIDO: Usar productParamCounter
+                AND id_orden = $${productParamCounter}`,
                 updateProductValues
               );
             }
