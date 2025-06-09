@@ -25,8 +25,6 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
         if (paymentInfo.tipoPago === 'contado' && paymentProofFile) {
             const uploadPath = await savePaymentProof(paymentProofFile);
             comprobanteId = await createPaymentProof(client, uploadPath);
-        } else {
-            comprobanteId = await createPaymentProof(client, null);
         }
         
         // 5. Create order
@@ -370,14 +368,28 @@ async function addClientAddress(client, clientId, address, cityId, departmentId)
 
 
 async function createProductionOrder(client, clientId, dueDate, paymentType, comprobanteId, observations, employeeId, direccionId) {
-    const result = await client.query(
-        `INSERT INTO orden_produccion(
-            id_cliente, fecha_aproximada, tipo_pago, id_comprobante_pago, 
-            observaciones, cedula_empleado_responsable, id_direccion
-        ) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING id_orden`,
-        [clientId, dueDate, paymentType, comprobanteId, observations, employeeId, direccionId]
-    );
+    // Query con manejo condicional para id_comprobante_pago
+    let query, params;
     
+    if (comprobanteId === null) {
+        // Si no hay comprobante, excluir el campo id_comprobante_pago
+        query = `INSERT INTO orden_produccion(
+            id_cliente, fecha_aproximada, tipo_pago,
+            observaciones, cedula_empleado_responsable, id_direccion
+        ) VALUES($1, $2, $3, $4, $5, $6) RETURNING id_orden`;
+        
+        params = [clientId, dueDate, paymentType, observations, employeeId, direccionId];
+    } else {
+        // Si hay comprobante, incluir el campo id_comprobante_pago
+        query = `INSERT INTO orden_produccion(
+            id_cliente, fecha_aproximada, tipo_pago, id_comprobante_pago,
+            observaciones, cedula_empleado_responsable, id_direccion
+        ) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING id_orden`;
+        
+        params = [clientId, dueDate, paymentType, comprobanteId, observations, employeeId, direccionId];
+    }
+    
+    const result = await client.query(query, params);
     return result.rows[0].id_orden;
 }
 

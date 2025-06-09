@@ -63,9 +63,23 @@ const getCitiesByDepartment = async (departmentId) => {
   }
 };
 
+const getAssesorEmployee = async () => {
+  try {
+    const query = `
+      SELECT cedula, nombre
+      FROM Empleado
+      WHERE id_rol = 1
+    `;
+    const { rows } = await pool.query(query,);
+    return rows;
+  } catch (error) {
+    throw new Error(`Error fetching cities by department: ${error.message}`);
+  }
+};
 module.exports = {
   getProductsByCategory,
   getColorsByCategory,
   getPatternsByCategory,
-  getCitiesByDepartment
+  getCitiesByDepartment,
+  getAssesorEmployee
 };

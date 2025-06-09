@@ -50,17 +50,12 @@ async function createOrder(req, res) {
 
         // Check if we're receiving the new nested structure
         const isNewFormat = req.body.customer && req.body.products;
-        console.log('isNewFormat:', isNewFormat);
         let employeeId, orderData, clientData, products, paymentInfo;
         
         if (isNewFormat) {
             // Process new JSON format
             const customerData = req.body.customer || {};
             const productsData = req.body.products || [];
-            
-            console.log('customerData parsed:', customerData);
-            console.log('productsData parsed:', productsData);
-            
             // Validate employee ID
             if (!customerData.advisor) {
                 return res.status(400).json({

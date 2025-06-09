@@ -2,7 +2,8 @@ const {
   getProductsByCategory, 
   getColorsByCategory, 
   getPatternsByCategory,
-  getCitiesByDepartment
+  getCitiesByDepartment,
+  getAssesorEmployee
 } = require('../models/getProducts.models');
 
 // Controller to get products, colors, and patterns by category
@@ -66,7 +67,28 @@ const getCitiesByDepartmentController = async (req, res) => {
   }
 };
 
+const getAssesorEmployeeController = async (req, res) => {
+  try {
+    const {  } = req.params;
+
+    const cities = await getAssesorEmployee();
+
+    return res.status(200).json({
+      success: true,
+      data: cities
+    });
+  } catch (error) {
+    console.error('Error in getAssesorEmployeeController:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Error al obtener empleados asesores',
+      error: error.message 
+    });
+  }
+};
+
 module.exports = {
   getProductsInfoByCategory,
-  getCitiesByDepartmentController
+  getCitiesByDepartmentController,
+  getAssesorEmployeeController
 };
