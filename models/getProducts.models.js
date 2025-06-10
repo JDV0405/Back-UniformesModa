@@ -68,7 +68,7 @@ const getAssesorEmployee = async () => {
     const query = `
       SELECT cedula, nombre
       FROM Empleado
-      WHERE id_rol = 1
+      WHERE id_rol = 2
     `;
     const { rows } = await pool.query(query,);
     return rows;
