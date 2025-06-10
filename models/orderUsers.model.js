@@ -1,10 +1,5 @@
 const pool = require('../database/db.js');
 
-/**
- * Obtiene todas las órdenes de producción asociadas al ID de un cliente
- * @param {string} clienteId - ID del cliente
- * @returns {Promise<Array>} - Lista de órdenes de producción
- */
 const getOrdersByClientId = async (clienteId) => {
   try {
     // Verificar si el cliente existe
@@ -46,11 +41,6 @@ const getOrdersByClientId = async (clienteId) => {
   }
 };
 
-/**
- * Obtiene los detalles de una orden específica
- * @param {number} orderId - ID de la orden
- * @returns {Promise<Object>} - Detalles de la orden con sus productos y proceso actual por producto
- */
 const getOrderDetailsById = async (orderId) => {
   try {
     // Primero obtenemos la información básica de la orden
@@ -68,6 +58,9 @@ const getOrderDetailsById = async (orderId) => {
     if (orderQuery.rows.length === 0) {
       return null;
     }
+    
+    // Extraemos la información del comprobante
+    const orderBasicInfo = orderQuery.rows[0];
     
     // Consulta principal con información relacionada usando la dirección asociada a la orden
     const detailsQuery = await pool.query(
@@ -284,6 +277,12 @@ const getOrderDetailsById = async (orderId) => {
     
     return {
       ...order,
+      // Agregamos la información del comprobante de pago
+      url_comprobante: orderBasicInfo.url_comprobante,
+      empleado_responsable: {
+        nombre: orderBasicInfo.empleado_nombre,
+        apellidos: orderBasicInfo.empleado_apellidos
+      },
       productos: productosConColores,
       procesos: processesQuery.rows,
       proceso_actual: processesQuery.rows.length > 0 ? 
