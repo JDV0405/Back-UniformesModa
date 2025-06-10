@@ -49,7 +49,7 @@ const getOrdersByClientId = async (clienteId) => {
 /**
  * Obtiene los detalles de una orden específica
  * @param {number} orderId - ID de la orden
- * @returns {Promise<Object>} - Detalles de la orden con sus productos
+ * @returns {Promise<Object>} - Detalles de la orden con sus productos y proceso actual por producto
  */
 const getOrderDetailsById = async (orderId) => {
   try {
@@ -122,9 +122,7 @@ const getOrderDetailsById = async (orderId) => {
       delete order.telefono_info;
     }
     
-    // Ya no necesitamos procesar direccion_info porque ahora obtenemos los campos directamente
-    
-    // Obtener productos de la orden
+    // MODIFICADO: Obtener productos con información del proceso actual
     const productsQuery = await pool.query(
       `SELECT 
         dpo.*, 
@@ -133,24 +131,65 @@ const getOrderDetailsById = async (orderId) => {
           'id_categoria', c.id_categoria,
           'nombre_categoria', c.nombre_categoria,
           'descripcion', c.descripcion
-        ) AS categoria
+        ) AS categoria,
+        -- NUEVO: Información del proceso actual del producto
+        COALESCE(
+          (
+            SELECT dp.id_proceso
+            FROM producto_proceso pp
+            JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+            WHERE pp.id_detalle_producto = dpo.id_detalle
+            ORDER BY dp.fecha_inicio_proceso DESC
+            LIMIT 1
+          ), NULL
+        ) AS id_proceso_actual,
+        COALESCE(
+          (
+            SELECT ep.nombre
+            FROM producto_proceso pp
+            JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+            JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+            WHERE pp.id_detalle_producto = dpo.id_detalle
+            ORDER BY dp.fecha_inicio_proceso DESC
+            LIMIT 1
+          ), 'Sin proceso asignado'
+        ) AS nombre_proceso_actual
       FROM detalle_producto_orden dpo
       JOIN producto p ON dpo.id_producto = p.id_producto
       JOIN categoria c ON p.id_categoria = c.id_categoria
-      WHERE dpo.id_orden = $1`,
+      WHERE dpo.id_orden = $1
+      ORDER BY dpo.id_detalle`,
       [orderId]
     );
     
     // Obtener procesos de la orden
     const processesQuery = await pool.query(
-      `SELECT dp.*, ep.nombre as nombre_proceso
+      `SELECT 
+        dp.*, 
+        ep.nombre as nombre_proceso,
+        e.nombre as empleado_nombre,
+        e.apellidos as empleado_apellidos,
+        e.telefono as empleado_telefono,
+        -- Información de productos en este proceso
+        (
+          SELECT COUNT(DISTINCT pp.id_detalle_producto)
+          FROM producto_proceso pp
+          WHERE pp.id_detalle_proceso = dp.id_detalle_proceso
+        ) as productos_en_proceso,
+        (
+          SELECT SUM(pp.cantidad)
+          FROM producto_proceso pp
+          WHERE pp.id_detalle_proceso = dp.id_detalle_proceso
+        ) as cantidad_total_proceso
       FROM detalle_proceso dp
       JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
-      WHERE dp.id_orden = $1`,
+      JOIN empleado e ON dp.cedula_empleado = e.cedula
+      WHERE dp.id_orden = $1
+      ORDER BY dp.fecha_inicio_proceso ASC`,
       [orderId]
     );
     
-    // Procesamiento de colores - MODIFICADO para incluir id_color
+    // Procesamiento de colores (código existente)
     const colorsQuery = await pool.query(
       `SELECT id_color, nombre_color, codigo_hex FROM color`
     );
@@ -164,7 +203,7 @@ const getOrderDetailsById = async (orderId) => {
       };
     });
     
-    // NUEVO: Procesamiento de estampados
+    // Procesamiento de estampados (código existente)
     const estampadosQuery = await pool.query(
       `SELECT id_estampado, nombre_estampado FROM estampado`
     );
@@ -177,6 +216,7 @@ const getOrderDetailsById = async (orderId) => {
       };
     });
     
+    // MODIFICADO: Procesamiento de productos con información del proceso actual
     const productosConColores = productsQuery.rows.map(producto => {
       const productoConColor = { ...producto };
       
@@ -185,13 +225,11 @@ const getOrderDetailsById = async (orderId) => {
         productoConColor.atributosusuario = {};
       }
       
-      // Procesamiento de color - MODIFICADO para NO incluir propiedades en atributosusuario
+      // Procesamiento de color (código existente)
       if (productoConColor.atributosusuario.color) {
         const nombreColor = productoConColor.atributosusuario.color.toLowerCase();
         
         if (colorMap[nombreColor]) {
-          
-          // Solamente añadir a nivel raíz
           productoConColor.color_id = colorMap[nombreColor].id_color;
           productoConColor.color_nombre = colorMap[nombreColor].nombre_color;
           productoConColor.color_hexadecimal = colorMap[nombreColor].codigo_hex;
@@ -201,37 +239,44 @@ const getOrderDetailsById = async (orderId) => {
           );
           
           if (colorParcial) {
-            
-            // Solamente añadir a nivel raíz
             productoConColor.color_id = colorMap[colorParcial].id_color;
             productoConColor.color_nombre = colorMap[colorParcial].nombre_color;
             productoConColor.color_hexadecimal = colorMap[colorParcial].codigo_hex;
           } else {
-            // Sólo a nivel raíz
             productoConColor.color_id = null;
             productoConColor.color_nombre = null;
             productoConColor.color_hexadecimal = null;
           }
         }
       } else {
-        // Sólo a nivel raíz
         productoConColor.color_id = null;
         productoConColor.color_nombre = null;
         productoConColor.color_hexadecimal = null;
       }
       
-      // Procesamiento de estampado - MODIFICADO similar al color
+      // Procesamiento de estampado (código existente)
       if (productoConColor.atributosusuario.estampado) {
         const nombreEstampado = productoConColor.atributosusuario.estampado.toLowerCase();
         
         if (estampadoMap[nombreEstampado]) {
-          
-          // Sólo a nivel raíz
           productoConColor.estampado_id = estampadoMap[nombreEstampado].id_estampado;
           productoConColor.estampado_nombre = estampadoMap[nombreEstampado].nombre_estampado;
         } else {
-          // Resto del código similar...
+          const estampadoParcial = Object.keys(estampadoMap).find(estampado => 
+            nombreEstampado.includes(estampado.toLowerCase()) || estampado.toLowerCase().includes(nombreEstampado)
+          );
+          
+          if (estampadoParcial) {
+            productoConColor.estampado_id = estampadoMap[estampadoParcial].id_estampado;
+            productoConColor.estampado_nombre = estampadoMap[estampadoParcial].nombre_estampado;
+          } else {
+            productoConColor.estampado_id = null;
+            productoConColor.estampado_nombre = null;
+          }
         }
+      } else {
+        productoConColor.estampado_id = null;
+        productoConColor.estampado_nombre = null;
       }
       
       return productoConColor;
@@ -240,13 +285,14 @@ const getOrderDetailsById = async (orderId) => {
     return {
       ...order,
       productos: productosConColores,
-      procesos: processesQuery.rows
+      procesos: processesQuery.rows,
+      proceso_actual: processesQuery.rows.length > 0 ? 
+        processesQuery.rows[processesQuery.rows.length - 1] : null
     };
   } catch (error) {
     throw new Error(`Error al obtener detalles de la orden: ${error.message}`);
   }
 };
-
 module.exports = {
   getOrdersByClientId,
   getOrderDetailsById,
