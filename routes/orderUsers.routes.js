@@ -134,5 +134,73 @@ router.get('/customer/:clienteId', orderUserController.getOrdersByClientId);
  */
 router.get('/:orderId', orderUserController.getOrderDetails);
 
+/**
+ * @swagger
+ * /api/orders/{orderId}/process/{processId}/products:
+ *   get:
+ *     summary: Obtiene los productos de una orden específica que están en un proceso determinado
+ *     tags: [Órdenes]
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: ID de la orden
+ *       - in: path
+ *         name: processId
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: ID del proceso
+ *     responses:
+ *       200:
+ *         description: Productos del proceso obtenidos exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     productos:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id_detalle:
+ *                             type: integer
+ *                           id_producto:
+ *                             type: integer
+ *                           nombre_producto:
+ *                             type: string
+ *                           cantidad:
+ *                             type: integer
+ *                           nombre_proceso_actual:
+ *                             type: string
+ *                     proceso:
+ *                       type: object
+ *                       properties:
+ *                         id_proceso:
+ *                           type: integer
+ *                         nombre_proceso:
+ *                           type: string
+ *                     total_productos:
+ *                       type: integer
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Los IDs de orden y proceso son requeridos
+ *       404:
+ *         description: Orden no encontrada
+ *       500:
+ *         description: Error al obtener los productos del proceso
+ */
+router.get('/:orderId/process/:processId', orderUserController.getProductsByOrderAndProcess);
+
 
 module.exports = router;

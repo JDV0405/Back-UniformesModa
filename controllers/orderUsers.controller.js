@@ -72,7 +72,50 @@ const getOrderDetails = async (req, res) => {
   }
 };
 
+const getProductsByOrderAndProcess = async (req, res) => {
+  try {
+    const { orderId, processId } = req.params;
+    
+    if (!orderId || !processId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'El ID de la orden y el ID del proceso son requeridos' 
+      });
+    }
+    
+    const result = await usuarioModel.getProductsByOrderAndProcess(orderId, processId);
+    
+    if (!result.orderExists) {
+      return res.status(404).json({
+        success: false,
+        message: `No se encontró orden con ID: ${orderId}`
+      });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      data: {
+        orden_info: result.orderInfo,
+        productos: result.products,
+        proceso: result.processInfo,
+        total_productos: result.products.length
+      },
+      message: result.products.length > 0 
+        ? 'Productos del proceso obtenidos exitosamente' 
+        : 'No hay productos en este proceso para la orden especificada'
+    });
+  } catch (error) {
+    console.error('Error al obtener productos por proceso:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al obtener los productos del proceso',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getOrdersByClientId,
   getOrderDetails,
+  getProductsByOrderAndProcess,
 };
