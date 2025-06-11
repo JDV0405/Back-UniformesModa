@@ -106,10 +106,10 @@ class AdvanceOrderController {
         
         // Validar estructura de productos
         for (const item of itemsToAdvance) {
-          if (!item.idDetalle) {
+          if (!item.idDetalle || !item.cantidadAvanzar || item.cantidadAvanzar <= 0) {
             return res.status(400).json({
               success: false,
-              message: 'Cada producto debe tener un ID de detalle válido'
+              message: 'Cada producto debe tener un ID de detalle válido y una cantidad a avanzar mayor a 0'
             });
           }
         }
