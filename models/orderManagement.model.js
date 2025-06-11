@@ -70,7 +70,8 @@ const OrderModel = {
           dp.observaciones,
           dp.fecha_final_proceso,
           e.nombre as nombre_empleado,
-          e.apellidos as apellidos_empleado
+          e.apellidos as apellidos_empleado,
+          op.activo as orden_activa
         FROM orden_produccion op
         JOIN detalle_proceso dp ON op.id_orden = dp.id_orden
         JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
@@ -78,7 +79,7 @@ const OrderModel = {
         JOIN empleado e ON dp.cedula_empleado = e.cedula
         WHERE dp.id_proceso = $1 
           AND dp.estado = 'En Proceso'
-        ORDER BY dp.fecha_inicio_proceso ASC
+        ORDER BY op.activo DESC, dp.fecha_inicio_proceso ASC
       `;
       const result = await pool.query(query, [idProceso]);
       return result.rows;
@@ -92,10 +93,9 @@ const OrderModel = {
     return OrderModel.getOrdersByProcess(idProceso);
   },
 
-
   getOrderDetails: async (idOrden) => {
     try {
-      // 1. Obtener información de la orden
+      // 1. Obtener información de la orden (incluir desactivadas)
       const queryOrden = `
         SELECT op.*, c.nombre as nombre_cliente
         FROM orden_produccion op
@@ -181,14 +181,15 @@ const OrderModel = {
           dp.observaciones,
           dp.fecha_final_proceso,
           e.nombre as nombre_empleado,
-          e.apellidos as apellidos_empleado
+          e.apellidos as apellidos_empleado,
+          op.activo as orden_activa
         FROM orden_produccion op
         JOIN detalle_proceso dp ON op.id_orden = dp.id_orden
         JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
         JOIN cliente c ON op.id_cliente = c.id_cliente
         JOIN empleado e ON dp.cedula_empleado = e.cedula
-        WHERE dp.estado = 'En Proceso'
-        ORDER BY dp.fecha_inicio_proceso ASC
+        WHERE dp.estado IN ('En Proceso', 'Cancelado')
+        ORDER BY op.activo DESC, dp.fecha_inicio_proceso ASC
       `;
       const result = await pool.query(query);
       return result.rows;
@@ -204,7 +205,8 @@ const OrderModel = {
           op.id_orden as numero_orden, 
           c.nombre as nombre_cliente,
           MAX(dp.fecha_final_proceso) as fecha_finalizacion,
-          STRING_AGG(DISTINCT e.nombre || ' ' || e.apellidos, ', ') as empleados_involucrados
+          STRING_AGG(DISTINCT e.nombre || ' ' || e.apellidos, ', ') as empleados_involucrados,
+          op.activo as orden_activa
         FROM orden_produccion op
         JOIN detalle_proceso dp ON op.id_orden = dp.id_orden
         JOIN cliente c ON op.id_cliente = c.id_cliente
@@ -217,8 +219,8 @@ const OrderModel = {
           SELECT 1 FROM detalle_producto_orden dpo
           WHERE dpo.id_orden = op.id_orden AND dpo.estado = 'Finalizado'
         )
-        GROUP BY op.id_orden, c.nombre
-        ORDER BY fecha_finalizacion DESC
+        GROUP BY op.id_orden, c.nombre, op.activo
+        ORDER BY op.activo DESC, fecha_finalizacion DESC
       `;
       
       const result = await pool.query(query);
@@ -236,7 +238,7 @@ const OrderModel = {
       
       // 1. Verificar que la orden existe
       const checkOrderQuery = await client.query(
-        'SELECT id_orden, id_cliente FROM orden_produccion WHERE id_orden = $1',
+        'SELECT id_orden, id_cliente, activo FROM orden_produccion WHERE id_orden = $1',
         [idOrden]
       );
       
@@ -514,9 +516,7 @@ const OrderModel = {
     } finally {
       client.release();
     }
-  }
-
-
+  },
 };
 
 module.exports = {

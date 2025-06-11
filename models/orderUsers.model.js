@@ -1,4 +1,6 @@
 const pool = require('../database/db.js');
+const fs = require('fs');
+const path = require('path');
 
 const getOrdersByClientId = async (clienteId) => {
   try {
@@ -274,11 +276,38 @@ const getOrderDetailsById = async (orderId) => {
       
       return productoConColor;
     });
+
+    let comprobanteBase64 = null;
+    if (orderBasicInfo.url_comprobante) {
+      try {
+        const fileName = path.basename(orderBasicInfo.url_comprobante);
+        const imagePath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
+        
+        if (fs.existsSync(imagePath)) {
+          const imageBuffer = fs.readFileSync(imagePath);
+          const imageExtension = path.extname(imagePath).toLowerCase();
+          const mimeType = imageExtension === '.png' ? 'image/png' : 'image/jpeg';
+          comprobanteBase64 = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+        } else {
+          
+          const alternativePath = orderBasicInfo.url_comprobante.replace(/\//g, '\\');
+          const fullAlternativePath = `C:\\Users\\Asus\\Desktop\\${alternativePath}`;
+          
+          if (fs.existsSync(fullAlternativePath)) {
+            const imageBuffer = fs.readFileSync(fullAlternativePath);
+            const imageExtension = path.extname(fullAlternativePath).toLowerCase();
+            const mimeType = imageExtension === '.png' ? 'image/png' : 'image/jpeg';
+            comprobanteBase64 = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+          }
+        }
+      } catch (error) {
+        console.log('Error al convertir comprobante a base64:', error);
+      }
+    }
     
     return {
       ...order,
-      // Agregamos la información del comprobante de pago
-      url_comprobante: orderBasicInfo.url_comprobante,
+      url_comprobante: comprobanteBase64,
       empleado_responsable: {
         nombre: orderBasicInfo.empleado_nombre,
         apellidos: orderBasicInfo.empleado_apellidos

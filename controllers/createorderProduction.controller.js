@@ -2,7 +2,6 @@ const orderModel = require('../models/createorderProduction.models');
 const multer = require('multer');
 const pool = require('../database/db.js');
 
-// Configurar multer para manejar múltiples archivos
 const storage = multer.memoryStorage();
 const upload = multer({ 
     storage: storage,
@@ -12,7 +11,6 @@ const upload = multer({
     }
 });
 
-// Middleware para manejar múltiples tipos de archivos
 const uploadMiddleware = upload.fields([
     { name: 'comprobanteFile', maxCount: 1 }, // Comprobante de pago
     { name: 'productImages', maxCount: 10 }, // Imágenes de productos (genérico)
@@ -316,9 +314,110 @@ const deleteOrder = async (req, res) => {
     }
 };
 
+const deactivateOrder = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { motivo } = req.body; // Obtener el motivo del cuerpo de la petición
+        
+        // Verificar que se proporcionó el ID de la orden
+        if (!orderId) {
+            return res.status(400).json({
+                success: false,
+                message: "Se requiere el ID de la orden"
+            });
+        }
+
+        // Validar que orderId sea un número válido
+        if (isNaN(parseInt(orderId))) {
+            return res.status(400).json({
+                success: false,
+                message: "El ID de la orden debe ser un número válido"
+            });
+        }
+
+        // Validar que se proporcionó el motivo
+        if (!motivo || motivo.trim() === '') {
+            return res.status(400).json({
+                success: false,
+                message: "Se requiere especificar el motivo de desactivación"
+            });
+        }
+
+        // Validar longitud del motivo
+        if (motivo.length > 300) {
+            return res.status(400).json({
+                success: false,
+                message: "El motivo no puede exceder 300 caracteres"
+            });
+        }
+
+        // Llamar a la función del modelo para desactivar la orden
+        const result = await orderModel.deactivateOrder(parseInt(orderId), motivo.trim());
+
+        // Si la operación no fue exitosa, devolver error
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+
+        // Devolver respuesta exitosa
+        return res.status(200).json(result);
+        
+    } catch (error) {
+        console.error('Error en controlador de desactivación de orden:', error);
+        return res.status(500).json({
+            success: false,
+            message: "Error interno del servidor al desactivar la orden",
+            error: error.message
+        });
+    }
+};
+
+const reactivateOrder = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        
+        // Verificar que se proporcionó el ID de la orden
+        if (!orderId) {
+            return res.status(400).json({
+                success: false,
+                message: "Se requiere el ID de la orden"
+            });
+        }
+
+        // Validar que orderId sea un número válido
+        if (isNaN(parseInt(orderId))) {
+            return res.status(400).json({
+                success: false,
+                message: "El ID de la orden debe ser un número válido"
+            });
+        }
+
+        // Llamar a la función del modelo para reactivar la orden
+        const result = await orderModel.reactivateOrder(parseInt(orderId));
+
+        // Si la operación no fue exitosa, devolver error
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+
+        // Devolver respuesta exitosa
+        return res.status(200).json(result);
+        
+    } catch (error) {
+        console.error('Error en controlador de reactivación de orden:', error);
+        return res.status(500).json({
+            success: false,
+            message: "Error interno del servidor al reactivar la orden",
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     createOrder,
     uploadMiddleware,
     deleteProductFromOrder,
-    deleteOrder
+    deleteOrder,
+    deactivateOrder,
+    reactivateOrder
 };
