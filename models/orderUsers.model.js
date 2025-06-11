@@ -284,7 +284,6 @@ const getOrderDetailsById = async (orderId) => {
         const imagePath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
         
         if (fs.existsSync(imagePath)) {
-          console.log('✅ Archivo encontrado en:', imagePath);
           const imageBuffer = fs.readFileSync(imagePath);
           const imageExtension = path.extname(imagePath).toLowerCase();
           const mimeType = imageExtension === '.png' ? 'image/png' : 'image/jpeg';
@@ -295,12 +294,10 @@ const getOrderDetailsById = async (orderId) => {
           const fullAlternativePath = `C:\\Users\\Asus\\Desktop\\${alternativePath}`;
           
           if (fs.existsSync(fullAlternativePath)) {
-            console.log('✅ Archivo encontrado en ruta alternativa:', fullAlternativePath);
             const imageBuffer = fs.readFileSync(fullAlternativePath);
             const imageExtension = path.extname(fullAlternativePath).toLowerCase();
             const mimeType = imageExtension === '.png' ? 'image/png' : 'image/jpeg';
             comprobanteBase64 = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
-            console.log('Base64 generado exitosamente desde ruta alternativa');
           }
         }
       } catch (error) {

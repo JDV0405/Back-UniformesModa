@@ -366,7 +366,6 @@ async function addClientAddress(client, clientId, address, cityId, departmentId)
     return addressResult.rows[0].id_direccion;
 }
 
-
 async function createProductionOrder(client, clientId, dueDate, paymentType, comprobanteId, observations, employeeId, direccionId) {
     // Query con manejo condicional para id_comprobante_pago
     let query, params;
@@ -532,10 +531,151 @@ async function deleteOrder(orderId) {
     }
 }
 
+async function deactivateOrder(orderId, motivoDesactivacion) {
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        
+        const checkOrder = await client.query(
+            'SELECT id_orden, activo, id_cliente, observaciones FROM orden_produccion WHERE id_orden = $1',
+            [orderId]
+        );
+        
+        if (checkOrder.rows.length === 0) {
+            throw new Error('La orden especificada no existe');
+        }
+        
+        if (!checkOrder.rows[0].activo) {
+            throw new Error('La orden ya está desactivada');
+        }
+        
+        const observacionesActuales = checkOrder.rows[0].observaciones || '';
+        const fechaDesactivacion = new Date().toLocaleString('es-CO', {
+            timeZone: 'America/Bogota',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        const nuevaObservacion = `[DESACTIVADA ${fechaDesactivacion}] ${motivoDesactivacion || 'Sin motivo especificado'}`;
+        const observacionesFinales = observacionesActuales 
+            ? `${observacionesActuales}\n\n${nuevaObservacion}`
+            : nuevaObservacion;
+        
+        const deactivateResult = await client.query(
+            'UPDATE orden_produccion SET activo = FALSE, observaciones = $1 WHERE id_orden = $2 RETURNING id_orden, id_cliente, fecha_aproximada',
+            [observacionesFinales, orderId]
+        );
+        
+        await client.query(
+            'UPDATE detalle_proceso SET estado = $1, observaciones = CASE WHEN observaciones IS NULL OR observaciones = \'\' THEN $2 ELSE observaciones || \'\n\' || $2 END WHERE id_orden = $3 AND estado != $4',
+            ['Cancelado', `Cancelado: ${motivoDesactivacion || 'Sin motivo especificado'}`, orderId, 'Completado']
+        );
+        
+        await client.query(
+            'UPDATE detalle_producto_orden SET estado = $1, observacion = CASE WHEN observacion IS NULL OR observacion = \'\' THEN $2 ELSE observacion || \'\n\' || $2 END WHERE id_orden = $3 AND estado != $4',
+            ['Cancelado', `Cancelado: ${motivoDesactivacion || 'Sin motivo especificado'}`, orderId, 'Completado']
+        );
+        
+        await client.query('COMMIT');
+        
+        return {
+            success: true,
+            message: "Orden desactivada correctamente",
+            data: { 
+                id_orden: parseInt(orderId),
+                id_cliente: deactivateResult.rows[0]?.id_cliente,
+                fecha_aproximada: deactivateResult.rows[0]?.fecha_aproximada,
+                estado: 'Desactivada',
+                motivo_desactivacion: motivoDesactivacion || 'Sin motivo especificado',
+                fecha_desactivacion: fechaDesactivacion
+            }
+        };
+        
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error al desactivar la orden:', error);
+        
+        return {
+            success: false,
+            message: "Error al desactivar la orden",
+            error: error.message
+        };
+    } finally {
+        client.release();
+    }
+}
+
+async function reactivateOrder(orderId) {
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        
+        const checkOrder = await client.query(
+            'SELECT id_orden, activo, id_cliente FROM orden_produccion WHERE id_orden = $1',
+            [orderId]
+        );
+        
+        if (checkOrder.rows.length === 0) {
+            throw new Error('La orden especificada no existe');
+        }
+        
+        if (checkOrder.rows[0].activo) {
+            throw new Error('La orden ya está activa');
+        }
+        
+        const reactivateResult = await client.query(
+            'UPDATE orden_produccion SET activo = TRUE WHERE id_orden = $1 RETURNING id_orden, id_cliente, fecha_aproximada',
+            [orderId]
+        );
+        
+        await client.query(
+            'UPDATE detalle_proceso SET estado = $1 WHERE id_orden = $2 AND estado = $3',
+            ['En Proceso', orderId, 'Cancelado']
+        );
+        
+        await client.query(
+            'UPDATE detalle_producto_orden SET estado = $1 WHERE id_orden = $2 AND estado = $3',
+            ['En Producción', orderId, 'Cancelado']
+        );
+        
+        await client.query('COMMIT');
+        
+        return {
+            success: true,
+            message: "Orden reactivada correctamente",
+            data: { 
+                id_orden: parseInt(orderId),
+                id_cliente: reactivateResult.rows[0]?.id_cliente,
+                fecha_aproximada: reactivateResult.rows[0]?.fecha_aproximada,
+                estado: 'Activa'
+            }
+        };
+        
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error al reactivar la orden:', error);
+        
+        return {
+            success: false,
+            message: "Error al reactivar la orden",
+            error: error.message
+        };
+    } finally {
+        client.release();
+    }
+}
+
 
 module.exports = {
     createOrder,
     deleteProductFromOrder,
     deleteOrder,
-    saveProductImages
+    saveProductImages,
+    deactivateOrder,
+    reactivateOrder
 };
