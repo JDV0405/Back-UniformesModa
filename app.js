@@ -7,6 +7,7 @@ const orderManagementRoutes = require('./routes/orderManagement.routes.js');
 const createOrder = require('./routes/createorderProduction.routes.js');
 const productRoutes = require('./routes/getProducts.routes');
 const advanceOrderRoutes = require('./routes/advanceOrder.routes.js');
+const path = require('path');
 
 // Swagger
 const swaggerUi = require('swagger-ui-express');
@@ -17,6 +18,9 @@ app.use(cors({
   origin: 'http://localhost:5173', // tu frontend
   credentials: true, // si usás cookies o tokens en headers
 }));
+
+// Servir archivos estáticos desde la carpeta Uniformes_Imagenes
+app.use('/images', express.static(path.join(__dirname, 'Uniformes_Imagenes')));
 
 // Middleware
 app.use(express.json());
