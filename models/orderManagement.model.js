@@ -71,7 +71,8 @@ const OrderModel = {
           dp.fecha_final_proceso,
           e.nombre as nombre_empleado,
           e.apellidos as apellidos_empleado,
-          op.activo as orden_activa
+          op.activo as orden_activa,
+          op.prioridad_orden
         FROM orden_produccion op
         JOIN detalle_proceso dp ON op.id_orden = dp.id_orden
         JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
@@ -182,7 +183,8 @@ const OrderModel = {
           dp.fecha_final_proceso,
           e.nombre as nombre_empleado,
           e.apellidos as apellidos_empleado,
-          op.activo as orden_activa
+          op.activo as orden_activa,
+          op.prioridad_orden
         FROM orden_produccion op
         JOIN detalle_proceso dp ON op.id_orden = dp.id_orden
         JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
