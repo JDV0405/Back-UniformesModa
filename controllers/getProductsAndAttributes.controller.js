@@ -4,7 +4,7 @@ const {
   getPatternsByCategory,
   getCitiesByDepartment,
   getAssesorEmployee
-} = require('../models/getProducts.models');
+} = require('../models/getProductsAndAttributes.models');
 
 // Controller to get products, colors, and patterns by category
 const getProductsInfoByCategory = async (req, res) => {

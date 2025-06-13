@@ -4,7 +4,7 @@ const {
   getProductsInfoByCategory, 
   getCitiesByDepartmentController,
   getAssesorEmployeeController
-} = require('../controllers/getProducts.controller');
+} = require('../controllers/getProductsAndAttributes.controller');
 
 // Route to get products, colors, and patterns by category
 router.get('/category/:categoryId/products', getProductsInfoByCategory);
