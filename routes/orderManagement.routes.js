@@ -322,8 +322,6 @@ router.get('/orders/completed', OrderController.getCompletedOrders);
  */
 router.get('/orders/:idOrden', OrderController.getOrderDetails);
 
-
-
 /**
  * @swagger
  * /orders/{idOrden}:

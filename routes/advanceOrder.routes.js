@@ -4,28 +4,439 @@ const advanceOrderController = require('../controllers/advanceOrder.controller')
 const authMiddleware = require('../middlewares/auth.middleware.js');
 
 router.use(authMiddleware);
-// Obtener todos los productos de una orden
+/**
+ * @swagger
+ * /api/advance/orden/{idOrden}:
+ *   get:
+ *     summary: Obtiene todos los productos de una orden
+ *     description: Retorna la lista completa de productos asociados a una orden específica
+ *     tags: [Seguimiento de Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idOrden
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la orden a consultar
+ *     responses:
+ *       200:
+ *         description: Lista de productos de la orden
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id_detalle:
+ *                         type: integer
+ *                       nombre_producto:
+ *                         type: string
+ *                       cantidad:
+ *                         type: integer
+ *                       color:
+ *                         type: string
+ *                       patron:
+ *                         type: string
+ *                       proceso_actual:
+ *                         type: string
+ *       404:
+ *         description: Orden no encontrada
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/orden/:idOrden', advanceOrderController.getOrderProducts);
 
-// Obtener productos que están en un proceso específico
+/**
+ * @swagger
+ * /api/advance/orden/{idOrden}/proceso/{idProceso}:
+ *   get:
+ *     summary: Obtiene productos que están en un proceso específico
+ *     description: Retorna los productos de una orden que actualmente se encuentran en un proceso determinado
+ *     tags: [Seguimiento de Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idOrden
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la orden
+ *       - in: path
+ *         name: idProceso
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del proceso a consultar
+ *     responses:
+ *       200:
+ *         description: Productos en el proceso especificado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id_detalle:
+ *                         type: integer
+ *                       nombre_producto:
+ *                         type: string
+ *                       cantidad:
+ *                         type: integer
+ *                       color:
+ *                         type: string
+ *                       proceso_actual:
+ *                         type: string
+ *       404:
+ *         description: Orden o proceso no encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/orden/:idOrden/proceso/:idProceso', advanceOrderController.getProductsInProcess);
 
-// Avanzar productos al siguiente proceso
+/**
+ * @swagger
+ * /api/advance/avanzar:
+ *   post:
+ *     summary: Avanza productos al siguiente proceso
+ *     description: Mueve los productos seleccionados al siguiente proceso en la cadena de producción
+ *     tags: [Seguimiento de Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               detalles:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: Array con los IDs de los detalles (productos) a avanzar
+ *                 example: [42, 43, 44]
+ *               observaciones:
+ *                 type: string
+ *                 description: Notas adicionales sobre el avance
+ *             required:
+ *               - detalles
+ *     responses:
+ *       200:
+ *         description: Productos avanzados correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Productos avanzados al siguiente proceso correctamente"
+ *       400:
+ *         description: Error en los datos enviados
+ *       500:
+ *         description: Error del servidor
+ */
 router.post('/avanzar', advanceOrderController.advanceProducts);
 
-// Obtener órdenes por proceso
+/**
+ * @swagger
+ * /api/advance/proceso/{idProceso}:
+ *   get:
+ *     summary: Obtiene órdenes por proceso
+ *     description: Retorna todas las órdenes que tienen productos actualmente en un proceso específico
+ *     tags: [Procesos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idProceso
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del proceso a consultar
+ *     responses:
+ *       200:
+ *         description: Órdenes en el proceso especificado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id_orden:
+ *                         type: integer
+ *                       cliente:
+ *                         type: string
+ *                       fecha_creacion:
+ *                         type: string
+ *                         format: date-time
+ *                       fecha_aproximada:
+ *                         type: string
+ *                         format: date
+ *                       prioridad:
+ *                         type: integer
+ *       404:
+ *         description: Proceso no encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/proceso/:idProceso', advanceOrderController.getOrdersByProcess);
 
-// Obtener detalle de una orden
+/**
+ * @swagger
+ * /api/advance/orden/{idOrden}/detalle:
+ *   get:
+ *     summary: Obtiene detalle de una orden
+ *     description: Retorna información detallada de una orden específica, incluyendo cliente y productos
+ *     tags: [Seguimiento de Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idOrden
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la orden a consultar
+ *     responses:
+ *       200:
+ *         description: Detalle completo de la orden
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     orden:
+ *                       type: object
+ *                       properties:
+ *                         id_orden:
+ *                           type: integer
+ *                         cliente:
+ *                           type: string
+ *                         fecha_creacion:
+ *                           type: string
+ *                           format: date-time
+ *                         fecha_aproximada:
+ *                           type: string
+ *                           format: date
+ *                         prioridad:
+ *                           type: integer
+ *                     productos:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id_detalle:
+ *                             type: integer
+ *                           producto:
+ *                             type: string
+ *                           cantidad:
+ *                             type: integer
+ *                           color:
+ *                             type: string
+ *                           patron:
+ *                             type: string
+ *                           proceso_actual:
+ *                             type: string
+ *       404:
+ *         description: Orden no encontrada
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/orden/:idOrden/detalle', advanceOrderController.getOrderDetail);
 
-// Completar una orden
+/**
+ * @swagger
+ * /api/advance/completed:
+ *   post:
+ *     summary: Completar una orden
+ *     description: Marca una orden como completada cuando todos sus productos han finalizado todos los procesos
+ *     tags: [Seguimiento de Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               idOrden:
+ *                 type: integer
+ *                 description: ID de la orden a completar
+ *                 example: 35
+ *             required:
+ *               - idOrden
+ *     responses:
+ *       200:
+ *         description: Orden completada correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "La orden ha sido completada exitosamente"
+ *       400:
+ *         description: Error en la solicitud o no todos los productos están finalizados
+ *       404:
+ *         description: Orden no encontrada
+ *       500:
+ *         description: Error del servidor
+ */
 router.post('/completed', advanceOrderController.completeOrder);
 
-// Obtener órdenes completadas
+/**
+ * @swagger
+ * /api/advance/ordersCompleted:
+ *   get:
+ *     summary: Obtiene órdenes completadas
+ *     description: Retorna la lista de órdenes que han sido marcadas como completadas
+ *     tags: [Seguimiento de Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de órdenes completadas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id_orden:
+ *                         type: integer
+ *                       cliente:
+ *                         type: string
+ *                       fecha_creacion:
+ *                         type: string
+ *                         format: date-time
+ *                       fecha_completada:
+ *                         type: string
+ *                         format: date-time
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/ordersCompleted', advanceOrderController.getCompletedOrders);
 
-// Obtener detalle de una orden completada
+/**
+ * @swagger
+ * /api/advance/ordenes-completadas/{idOrden}:
+ *   get:
+ *     summary: Obtiene detalle de una orden completada
+ *     description: Retorna información detallada de una orden específica que ya ha sido completada
+ *     tags: [Seguimiento de Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idOrden
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la orden completada a consultar
+ *     responses:
+ *       200:
+ *         description: Detalle completo de la orden completada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     orden:
+ *                       type: object
+ *                       properties:
+ *                         id_orden:
+ *                           type: integer
+ *                         cliente:
+ *                           type: string
+ *                         fecha_creacion:
+ *                           type: string
+ *                           format: date-time
+ *                         fecha_completada:
+ *                           type: string
+ *                           format: date-time
+ *                     productos:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id_detalle:
+ *                             type: integer
+ *                           producto:
+ *                             type: string
+ *                           cantidad:
+ *                             type: integer
+ *                           color:
+ *                             type: string
+ *                           historial_procesos:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 proceso:
+ *                                   type: string
+ *                                 fecha_inicio:
+ *                                   type: string
+ *                                   format: date-time
+ *                                 fecha_fin:
+ *                                   type: string
+ *                                   format: date-time
+ *       404:
+ *         description: Orden completada no encontrada
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/ordenes-completadas/:idOrden', advanceOrderController.getCompletedOrderDetail);
 
 

@@ -8,8 +8,120 @@ router.post('/createOrder',
     orderController.createOrder
 );
 
+/**
+ * @swagger
+ * /api/create/createOrder:
+ *   post:
+ *     summary: Crea una nueva orden de producción
+ *     description: Registra una nueva orden de producción con sus detalles y archivos adjuntos
+ *     tags: [Órdenes]
+ *     consumes:
+ *       - multipart/form-data
+ *     parameters:
+ *       - in: formData
+ *         name: files
+ *         type: file
+ *         description: Archivos relacionados con la orden (diseños, especificaciones, etc.)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               clientId:
+ *                 type: integer
+ *                 description: ID del cliente que solicita la orden
+ *               approxDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Fecha aproximada de entrega
+ *               products:
+ *                 type: array
+ *                 description: Lista de productos incluidos en la orden
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     productId:
+ *                       type: integer
+ *                     quantity:
+ *                       type: integer
+ *                     colorId:
+ *                       type: integer
+ *                     patternId:
+ *                       type: integer
+ *                     observations:
+ *                       type: string
+ *             required:
+ *               - clientId
+ *               - approxDate
+ *               - products
+ *     responses:
+ *       201:
+ *         description: Orden creada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Orden creada exitosamente"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     orderId:
+ *                       type: integer
+ *                       example: 123
+ *       400:
+ *         description: Error en los datos enviados
+ *       500:
+ *         description: Error del servidor
+ */
 router.delete('/delete/orders/:orderId/products/:detailId', orderController.deleteProductFromOrder);
 
+/**
+ * @swagger
+ * /api/create/delete/orders/{orderId}/products/{detailId}:
+ *   delete:
+ *     summary: Elimina un producto de una orden
+ *     description: Elimina un producto específico de una orden de producción existente
+ *     tags: [Órdenes]
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la orden de producción
+ *       - in: path
+ *         name: detailId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del detalle (producto) a eliminar
+ *     responses:
+ *       200:
+ *         description: Producto eliminado de la orden exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Producto eliminado de la orden correctamente"
+ *       404:
+ *         description: Orden o detalle no encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.delete('/delete/orders/:orderId', orderController.deleteOrder);
 
 /**
