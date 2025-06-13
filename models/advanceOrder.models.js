@@ -55,6 +55,30 @@ class AdvanceOrderModel {
     }
   }
 
+  // Obtener todos los confeccionistas activos
+  async getActiveConfeccionistas() {
+    try {
+      const query = `
+        SELECT id_confeccionista, cedula, nombre, telefono
+        FROM confeccionista
+        WHERE activo = true
+        ORDER BY nombre
+      `;
+      
+      const result = await db.query(query);
+      return result.rows;
+    } catch (error) {
+      throw new Error(`Error al obtener confeccionistas: ${error.message}`);
+    }
+  }
+
+  // Verificar si estamos pasando de cortes a confección
+  isTransitionFromCortesToConfeccion(idProcesoActual, idProcesoSiguiente) {
+    // Asumiendo que el proceso de cortes es ID 2 y confección es ID 3
+    // Ajusta estos IDs según tu configuración
+    return parseInt(idProcesoActual) === 2 && parseInt(idProcesoSiguiente) === 3;
+  }
+
   // Avanza productos al siguiente proceso con la nueva estructura de datos
   async advanceProductsToNextProcess(datos) {
     const { 
@@ -69,6 +93,19 @@ class AdvanceOrderModel {
     try {
       // Iniciamos la transacción
       await db.query('BEGIN');
+
+      // Verificar si es transición de cortes a confección
+      const isCorteToConfeccion = this.isTransitionFromCortesToConfeccion(idProcesoActual, idProcesoSiguiente);
+
+      // Validar que si es transición de cortes a confección, todos los items tengan confeccionista
+      if (isCorteToConfeccion) {
+        for (const item of itemsToAdvance) {
+          if (!item.idConfeccionista) {
+            throw new Error(`Se debe asignar un confeccionista para el producto con ID ${item.idDetalle} al pasar a confección`);
+          }
+        }
+      }
+
 
       // 1. Verificar si ya existe un registro en detalle_proceso para el siguiente proceso
       let detalleProcesoSiguiente = await db.query(
