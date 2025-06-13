@@ -75,65 +75,107 @@ class AdvanceOrderController {
       });
     }
   }
-
- //Avanza productos al siguiente proceso
+  // Obtener productos con todos sus confeccionistas asignados
+  async getProductsWithAllConfeccionistas(req, res) {
+    try {
+      const { idOrden, idProceso } = req.params;
+      
+      if (!idOrden || !idProceso) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Se requieren IDs de orden y proceso' 
+        });
+      }
+      
+      const productos = await AdvanceOrderModel.getProductsWithAllConfeccionistas(idOrden, idProceso);
+      return res.status(200).json({
+        success: true,
+        data: productos,
+        message: 'Productos con todos los confeccionistas obtenidos correctamente'
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al obtener productos con confeccionistas: ${error.message}`
+      });
+    }
+  }
+ //Avanza productos al siguiente proceso (MODIFICADO)
   async advanceProducts(req, res) {
-      try {
-        const { 
-          idOrden, 
-          idProcesoActual, 
-          idProcesoSiguiente, 
-          cedulaEmpleadoActual,
-          itemsToAdvance,
-          observaciones 
-        } = req.body;
-        
-        // Validaciones
-        if (!idOrden || !idProcesoActual || !idProcesoSiguiente || !cedulaEmpleadoActual || !itemsToAdvance || !itemsToAdvance.length) {
+    try {
+      const { 
+        idOrden, 
+        idProcesoActual, 
+        idProcesoSiguiente, 
+        cedulaEmpleadoActual,
+        itemsToAdvance,
+        observaciones 
+      } = req.body;
+      
+      // Validaciones
+      if (!idOrden || !idProcesoActual || !idProcesoSiguiente || !cedulaEmpleadoActual || !itemsToAdvance || !itemsToAdvance.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'Faltan datos requeridos. Se necesita ID de orden, proceso actual, proceso siguiente, cédula del empleado y productos a avanzar'
+        });
+      }
+      
+      // Validar que los procesos sean diferentes
+      if (parseInt(idProcesoActual) === parseInt(idProcesoSiguiente)) {
+        return res.status(400).json({
+          success: false,
+          message: 'El proceso actual y el siguiente no pueden ser iguales'
+        });
+      }
+      
+      // Validar estructura de productos
+      for (const item of itemsToAdvance) {
+        if (!item.idDetalle || !item.cantidadAvanzar || item.cantidadAvanzar <= 0) {
           return res.status(400).json({
             success: false,
-            message: 'Faltan datos requeridos. Se necesita ID de orden, proceso actual, proceso siguiente, cédula del empleado y productos a avanzar'
+            message: 'Cada producto debe tener un ID de detalle válido y una cantidad a avanzar mayor a 0'
           });
         }
         
-        // Validar que los procesos sean diferentes
-        if (parseInt(idProcesoActual) === parseInt(idProcesoSiguiente)) {
-          return res.status(400).json({
-            success: false,
-            message: 'El proceso actual y el siguiente no pueden ser iguales'
-          });
-        }
-        
-        // Validar estructura de productos
-        for (const item of itemsToAdvance) {
-          if (!item.idDetalle || !item.cantidadAvanzar || item.cantidadAvanzar <= 0) {
+        // Validar que si es transición de cortes a confección (proceso 3 a 4), se incluya confeccionista
+        if (parseInt(idProcesoActual) === 3 && parseInt(idProcesoSiguiente) === 4) {
+          if (!item.idConfeccionista) {
             return res.status(400).json({
               success: false,
-              message: 'Cada producto debe tener un ID de detalle válido y una cantidad a avanzar mayor a 0'
+              message: 'Se debe asignar un confeccionista cuando se pasa del proceso de cortes a confección'
             });
           }
         }
         
-        await AdvanceOrderModel.advanceProductsToNextProcess({
-          idOrden, 
-          idProcesoActual, 
-          idProcesoSiguiente, 
-          cedulaEmpleadoActual,
-          itemsToAdvance,
-          observaciones
-        });
-        
-        return res.status(200).json({
-          success: true,
-          message: 'Productos avanzados exitosamente al siguiente proceso'
-        });
-      } catch (error) {
-        return res.status(500).json({
-          success: false,
-          message: `Error al avanzar productos: ${error.message}`
-        });
+        // Validar que si viene de confección (proceso 4), se incluya idProductoProceso para identificar cuál grupo específico
+        if (parseInt(idProcesoActual) === 4 && !item.idProductoProceso) {
+          return res.status(400).json({
+            success: false,
+            message: 'Se debe especificar idProductoProceso cuando se avanza desde confección para identificar el grupo específico'
+          });
+        }
       }
-  }
+      
+      await AdvanceOrderModel.advanceProductsToNextProcess({
+        idOrden, 
+        idProcesoActual, 
+        idProcesoSiguiente, 
+        cedulaEmpleadoActual,
+        itemsToAdvance,
+        observaciones
+      });
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Productos avanzados exitosamente al siguiente proceso'
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al avanzar productos: ${error.message}`
+      });
+    }
+}
   
   async getOrderDetail(req, res) {
     try {
@@ -236,6 +278,22 @@ class AdvanceOrderController {
       return res.status(500).json({
         success: false,
         message: `Error al obtener detalle de la orden completada: ${error.message}`
+      });
+    }
+  }
+  // Obtener confeccionistas activos
+  async getActiveConfeccionistas(req, res) {
+    try {
+      const confeccionistas = await AdvanceOrderModel.getActiveConfeccionistas();
+      return res.status(200).json({
+        success: true,
+        data: confeccionistas,
+        message: 'Confeccionistas obtenidos correctamente'
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al obtener confeccionistas: ${error.message}`
       });
     }
   }
