@@ -13,6 +13,9 @@ router.get('/orden/:idOrden/proceso/:idProceso', advanceOrderController.getProdu
 // Avanzar productos al siguiente proceso
 router.post('/avanzar', advanceOrderController.advanceProducts);
 
+// Obtener confeccionistas activos
+router.get('/confeccionistas', advanceOrderController.getActiveConfeccionistas);
+
 // Obtener órdenes por proceso
 router.get('/proceso/:idProceso', advanceOrderController.getOrdersByProcess);
 
