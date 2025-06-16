@@ -175,61 +175,171 @@ class AdvanceOrderModel {
 
   // Avanza productos al siguiente proceso con la nueva estructura de datos
   async advanceProductsToNextProcess(datos) {
-    const { idOrden, idProcesoActual, idProcesoSiguiente, cedulaEmpleadoActual, itemsToAdvance, observaciones } = datos;
+  const { idOrden, idProcesoActual, idProcesoSiguiente, cedulaEmpleadoActual, itemsToAdvance, observaciones } = datos;
+  
+  try {
+    await db.query('BEGIN');
     
-    try {
-      await db.query('BEGIN');
-      
-      // 1. Crear o obtener el detalle_proceso para el siguiente proceso
-      let idDetalleProcesoSiguiente;
-      const procesoSiguienteQuery = await db.query(
-        `SELECT id_detalle_proceso FROM detalle_proceso 
-        WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'`,
-        [idOrden, idProcesoSiguiente]
+    // 1. Crear o obtener el detalle_proceso para el siguiente proceso
+    let idDetalleProcesoSiguiente;
+    const procesoSiguienteQuery = await db.query(
+      `SELECT id_detalle_proceso FROM detalle_proceso 
+      WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'`,
+      [idOrden, idProcesoSiguiente]
+    );
+    
+    if (procesoSiguienteQuery.rows.length > 0) {
+      idDetalleProcesoSiguiente = procesoSiguienteQuery.rows[0].id_detalle_proceso;
+    } else {
+      const nuevoProcesoQuery = await db.query(
+        `INSERT INTO detalle_proceso 
+        (id_orden, id_proceso, cedula_empleado, observaciones) 
+        VALUES ($1, $2, $3, $4) RETURNING id_detalle_proceso`,
+        [idOrden, idProcesoSiguiente, cedulaEmpleadoActual, observaciones]
       );
+      idDetalleProcesoSiguiente = nuevoProcesoQuery.rows[0].id_detalle_proceso;
+    }
+    
+    // Verificar si estamos pasando de cortes a confección
+    const isCorteToConfeccion = parseInt(idProcesoActual) === 3 && parseInt(idProcesoSiguiente) === 4;
+    
+    // 2. Procesar cada producto
+    for (const item of itemsToAdvance) {
+      const { idDetalle, cantidadAvanzar, idConfeccionista, idProductoProceso, fechaRecibido, fechaEntrega } = item;
       
-      if (procesoSiguienteQuery.rows.length > 0) {
-        idDetalleProcesoSiguiente = procesoSiguienteQuery.rows[0].id_detalle_proceso;
-      } else {
-        const nuevoProcesoQuery = await db.query(
-          `INSERT INTO detalle_proceso 
-          (id_orden, id_proceso, cedula_empleado, observaciones) 
-          VALUES ($1, $2, $3, $4) RETURNING id_detalle_proceso`,
-          [idOrden, idProcesoSiguiente, cedulaEmpleadoActual, observaciones]
+      // NUEVA LÓGICA: Si viene de confección (proceso 4) y tiene idProductoProceso específico
+      if (parseInt(idProcesoActual) === 4 && idProductoProceso) {
+        // Obtener la cantidad específica de este producto_proceso
+        const cantidadEspecificaQuery = await db.query(
+          `SELECT pp.cantidad, pp.id_confeccionista
+          FROM producto_proceso pp
+          JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+          WHERE pp.id_producto_proceso = $1 AND dp.id_orden = $2 AND dp.id_proceso = $3 AND dp.estado = 'En Proceso'`,
+          [idProductoProceso, idOrden, idProcesoActual]
         );
-        idDetalleProcesoSiguiente = nuevoProcesoQuery.rows[0].id_detalle_proceso;
-      }
-      
-      // Verificar si estamos pasando de cortes a confección
-      const isCorteToConfeccion = parseInt(idProcesoActual) === 3 && parseInt(idProcesoSiguiente) === 4;
-      
-      // 2. Procesar cada producto
-      for (const item of itemsToAdvance) {
-        const { idDetalle, cantidadAvanzar, idConfeccionista, idProductoProceso } = item;
         
-        // NUEVA LÓGICA: Si viene de confección (proceso 4) y tiene idProductoProceso específico
-        if (parseInt(idProcesoActual) === 4 && idProductoProceso) {
-          // Obtener la cantidad específica de este producto_proceso
-          const cantidadEspecificaQuery = await db.query(
-            `SELECT pp.cantidad, pp.id_confeccionista
+        if (cantidadEspecificaQuery.rows.length === 0) {
+          throw new Error(`No se encontró el producto específico ${idProductoProceso} en el proceso actual`);
+        }
+        
+        const cantidadEnProcesoActual = cantidadEspecificaQuery.rows[0].cantidad;
+        const confeccionistaOriginal = cantidadEspecificaQuery.rows[0].id_confeccionista;
+        
+        if (cantidadAvanzar > cantidadEnProcesoActual) {
+          throw new Error(`No se puede avanzar ${cantidadAvanzar} unidades. Solo hay ${cantidadEnProcesoActual} disponibles en esta asignación específica`);
+        }
+        
+        // Avanzar al siguiente proceso (sin confeccionista ya que sale de confección)
+        const existeEnSiguienteQuery = await db.query(
+          `SELECT pp.id_producto_proceso, pp.cantidad
+          FROM producto_proceso pp
+          WHERE pp.id_detalle_producto = $1 AND pp.id_detalle_proceso = $2`,
+          [idDetalle, idDetalleProcesoSiguiente]
+        );
+        
+        if (existeEnSiguienteQuery.rows.length > 0) {
+          const cantidadExistente = existeEnSiguienteQuery.rows[0].cantidad;
+          const nuevaCantidad = cantidadExistente + cantidadAvanzar;
+          
+          await db.query(
+            `UPDATE producto_proceso 
+            SET cantidad = $1
+            WHERE id_detalle_producto = $2 AND id_detalle_proceso = $3`,
+            [nuevaCantidad, idDetalle, idDetalleProcesoSiguiente]
+          );
+        } else {
+          await db.query(
+            `INSERT INTO producto_proceso 
+            (id_detalle_producto, id_detalle_proceso, cantidad) 
+            VALUES ($1, $2, $3)`,
+            [idDetalle, idDetalleProcesoSiguiente, cantidadAvanzar]
+          );
+        }
+        
+        // Actualizar o eliminar el registro específico en confección
+        const nuevaCantidadProcesoActual = cantidadEnProcesoActual - cantidadAvanzar;
+        
+        if (nuevaCantidadProcesoActual === 0) {
+          // Eliminar este registro específico
+          await db.query(
+            `DELETE FROM producto_proceso WHERE id_producto_proceso = $1`,
+            [idProductoProceso]
+          );
+        } else {
+          // Actualizar la cantidad de este registro específico
+          await db.query(
+            `UPDATE producto_proceso SET cantidad = $1 WHERE id_producto_proceso = $2`,
+            [nuevaCantidadProcesoActual, idProductoProceso]
+          );
+        }
+      } else {
+        // LÓGICA ORIGINAL para otros procesos
+        // Obtener la cantidad actual en el proceso actual
+        let cantidadActualQuery;
+        
+        if (idConfeccionista && parseInt(idProcesoActual) === 4) {
+          // Si estamos en confección y se especifica confeccionista
+          cantidadActualQuery = await db.query(
+            `SELECT pp.cantidad
             FROM producto_proceso pp
             JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
-            WHERE pp.id_producto_proceso = $1 AND dp.id_orden = $2 AND dp.id_proceso = $3 AND dp.estado = 'En Proceso'`,
-            [idProductoProceso, idOrden, idProcesoActual]
+            WHERE pp.id_detalle_producto = $1 AND dp.id_orden = $2 AND dp.id_proceso = $3 
+            AND dp.estado = 'En Proceso' AND pp.id_confeccionista = $4`,
+            [idDetalle, idOrden, idProcesoActual, idConfeccionista]
+          );
+        } else {
+          cantidadActualQuery = await db.query(
+            `SELECT pp.cantidad
+            FROM producto_proceso pp
+            JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+            WHERE pp.id_detalle_producto = $1 AND dp.id_orden = $2 AND dp.id_proceso = $3 AND dp.estado = 'En Proceso'`,
+            [idDetalle, idOrden, idProcesoActual]
+          );
+        }
+        
+        if (cantidadActualQuery.rows.length === 0) {
+          throw new Error(`No se encontró el producto ${idDetalle} en el proceso actual`);
+        }
+        
+        const cantidadEnProcesoActual = cantidadActualQuery.rows[0].cantidad;
+        
+        if (cantidadAvanzar > cantidadEnProcesoActual) {
+          throw new Error(`No se puede avanzar ${cantidadAvanzar} unidades. Solo hay ${cantidadEnProcesoActual} disponibles`);
+        }
+        
+        // Lógica para manejar destino (con o sin confeccionista)
+        if (isCorteToConfeccion) {
+          const existeConConfeccionistaQuery = await db.query(
+            `SELECT pp.id_producto_proceso, pp.cantidad
+            FROM producto_proceso pp
+            WHERE pp.id_detalle_producto = $1 
+            AND pp.id_detalle_proceso = $2 
+            AND pp.id_confeccionista = $3`,
+            [idDetalle, idDetalleProcesoSiguiente, idConfeccionista]
           );
           
-          if (cantidadEspecificaQuery.rows.length === 0) {
-            throw new Error(`No se encontró el producto específico ${idProductoProceso} en el proceso actual`);
+          if (existeConConfeccionistaQuery.rows.length > 0) {
+            const cantidadExistente = existeConConfeccionistaQuery.rows[0].cantidad;
+            const nuevaCantidad = cantidadExistente + cantidadAvanzar;
+            
+            await db.query(
+              `UPDATE producto_proceso 
+              SET cantidad = $1, fecha_recibido = $2, fecha_entrega = $3
+              WHERE id_detalle_producto = $4 
+              AND id_detalle_proceso = $5 
+              AND id_confeccionista = $6`,
+              [nuevaCantidad, fechaRecibido, fechaEntrega, idDetalle, idDetalleProcesoSiguiente, idConfeccionista]
+            );
+          } else {
+            await db.query(
+              `INSERT INTO producto_proceso 
+              (id_detalle_producto, id_detalle_proceso, cantidad, id_confeccionista, fecha_recibido, fecha_entrega) 
+              VALUES ($1, $2, $3, $4, $5, $6)`,
+              [idDetalle, idDetalleProcesoSiguiente, cantidadAvanzar, idConfeccionista, fechaRecibido, fechaEntrega]
+            );
           }
-          
-          const cantidadEnProcesoActual = cantidadEspecificaQuery.rows[0].cantidad;
-          const confeccionistaOriginal = cantidadEspecificaQuery.rows[0].id_confeccionista;
-          
-          if (cantidadAvanzar > cantidadEnProcesoActual) {
-            throw new Error(`No se puede avanzar ${cantidadAvanzar} unidades. Solo hay ${cantidadEnProcesoActual} disponibles en esta asignación específica`);
-          }
-          
-          // Avanzar al siguiente proceso (sin confeccionista ya que sale de confección)
+        } else {
+          // Para procesos que no son corte a confección
           const existeEnSiguienteQuery = await db.query(
             `SELECT pp.id_producto_proceso, pp.cantidad
             FROM producto_proceso pp
@@ -255,202 +365,92 @@ class AdvanceOrderModel {
               [idDetalle, idDetalleProcesoSiguiente, cantidadAvanzar]
             );
           }
-          
-          // Actualizar o eliminar el registro específico en confección
-          const nuevaCantidadProcesoActual = cantidadEnProcesoActual - cantidadAvanzar;
-          
-          if (nuevaCantidadProcesoActual === 0) {
-            // Eliminar este registro específico
-            await db.query(
-              `DELETE FROM producto_proceso WHERE id_producto_proceso = $1`,
-              [idProductoProceso]
-            );
-          } else {
-            // Actualizar la cantidad de este registro específico
-            await db.query(
-              `UPDATE producto_proceso SET cantidad = $1 WHERE id_producto_proceso = $2`,
-              [nuevaCantidadProcesoActual, idProductoProceso]
-            );
-          }
-        } else {
-          // LÓGICA ORIGINAL para otros procesos
-          // Obtener la cantidad actual en el proceso actual
-          let cantidadActualQuery;
-          
+        }
+        
+        // Actualizar la cantidad en el proceso actual
+        const nuevaCantidadProcesoActual = cantidadEnProcesoActual - cantidadAvanzar;
+        
+        if (nuevaCantidadProcesoActual === 0) {
+          // Si no queda cantidad, eliminar el registro del proceso actual
           if (idConfeccionista && parseInt(idProcesoActual) === 4) {
-            // Si estamos en confección y se especifica confeccionista
-            cantidadActualQuery = await db.query(
-              `SELECT pp.cantidad
-              FROM producto_proceso pp
-              JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
-              WHERE pp.id_detalle_producto = $1 AND dp.id_orden = $2 AND dp.id_proceso = $3 
-              AND dp.estado = 'En Proceso' AND pp.id_confeccionista = $4`,
+            await db.query(
+              `DELETE FROM producto_proceso pp
+              WHERE pp.id_detalle_producto = $1 
+              AND pp.id_detalle_proceso IN (
+                SELECT dp.id_detalle_proceso 
+                FROM detalle_proceso dp 
+                WHERE dp.id_orden = $2 AND dp.id_proceso = $3 AND dp.estado = 'En Proceso'
+              ) AND pp.id_confeccionista = $4`,
               [idDetalle, idOrden, idProcesoActual, idConfeccionista]
             );
           } else {
-            cantidadActualQuery = await db.query(
-              `SELECT pp.cantidad
-              FROM producto_proceso pp
-              JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
-              WHERE pp.id_detalle_producto = $1 AND dp.id_orden = $2 AND dp.id_proceso = $3 AND dp.estado = 'En Proceso'`,
+            await db.query(
+              `DELETE FROM producto_proceso pp
+              WHERE pp.id_detalle_producto = $1 
+              AND pp.id_detalle_proceso IN (
+                SELECT dp.id_detalle_proceso 
+                FROM detalle_proceso dp 
+                WHERE dp.id_orden = $2 AND dp.id_proceso = $3 AND dp.estado = 'En Proceso'
+              )`,
               [idDetalle, idOrden, idProcesoActual]
             );
           }
-          
-          if (cantidadActualQuery.rows.length === 0) {
-            throw new Error(`No se encontró el producto ${idDetalle} en el proceso actual`);
-          }
-          
-          const cantidadEnProcesoActual = cantidadActualQuery.rows[0].cantidad;
-          
-          if (cantidadAvanzar > cantidadEnProcesoActual) {
-            throw new Error(`No se puede avanzar ${cantidadAvanzar} unidades. Solo hay ${cantidadEnProcesoActual} disponibles`);
-          }
-          
-          // Lógica para manejar destino (con o sin confeccionista)
-          if (isCorteToConfeccion) {
-            const existeConConfeccionistaQuery = await db.query(
-              `SELECT pp.id_producto_proceso, pp.cantidad
-              FROM producto_proceso pp
-              WHERE pp.id_detalle_producto = $1 
-              AND pp.id_detalle_proceso = $2 
-              AND pp.id_confeccionista = $3`,
-              [idDetalle, idDetalleProcesoSiguiente, idConfeccionista]
+        } else {
+          // Si queda cantidad, actualizar el registro
+          if (idConfeccionista && parseInt(idProcesoActual) === 4) {
+            await db.query(
+              `UPDATE producto_proceso 
+              SET cantidad = $1
+              WHERE id_detalle_producto = $2 
+              AND id_detalle_proceso IN (
+                SELECT dp.id_detalle_proceso 
+                FROM detalle_proceso dp 
+                WHERE dp.id_orden = $3 AND dp.id_proceso = $4 AND dp.estado = 'En Proceso'
+              ) AND id_confeccionista = $5`,
+              [nuevaCantidadProcesoActual, idDetalle, idOrden, idProcesoActual, idConfeccionista]
             );
-            
-            if (existeConConfeccionistaQuery.rows.length > 0) {
-              const cantidadExistente = existeConConfeccionistaQuery.rows[0].cantidad;
-              const nuevaCantidad = cantidadExistente + cantidadAvanzar;
-              
-              await db.query(
-                `UPDATE producto_proceso 
-                SET cantidad = $1
-                WHERE id_detalle_producto = $2 
-                AND id_detalle_proceso = $3 
-                AND id_confeccionista = $4`,
-                [nuevaCantidad, idDetalle, idDetalleProcesoSiguiente, idConfeccionista]
-              );
-            } else {
-              await db.query(
-                `INSERT INTO producto_proceso 
-                (id_detalle_producto, id_detalle_proceso, cantidad, id_confeccionista) 
-                VALUES ($1, $2, $3, $4)`,
-                [idDetalle, idDetalleProcesoSiguiente, cantidadAvanzar, idConfeccionista]
-              );
-            }
           } else {
-            // Para procesos que no son corte a confección
-            const existeEnSiguienteQuery = await db.query(
-              `SELECT pp.id_producto_proceso, pp.cantidad
-              FROM producto_proceso pp
-              WHERE pp.id_detalle_producto = $1 AND pp.id_detalle_proceso = $2`,
-              [idDetalle, idDetalleProcesoSiguiente]
+            await db.query(
+              `UPDATE producto_proceso 
+              SET cantidad = $1
+              WHERE id_detalle_producto = $2 
+              AND id_detalle_proceso IN (
+                SELECT dp.id_detalle_proceso 
+                FROM detalle_proceso dp 
+                WHERE dp.id_orden = $3 AND dp.id_proceso = $4 AND dp.estado = 'En Proceso'
+              )`,
+              [nuevaCantidadProcesoActual, idDetalle, idOrden, idProcesoActual]
             );
-            
-            if (existeEnSiguienteQuery.rows.length > 0) {
-              const cantidadExistente = existeEnSiguienteQuery.rows[0].cantidad;
-              const nuevaCantidad = cantidadExistente + cantidadAvanzar;
-              
-              await db.query(
-                `UPDATE producto_proceso 
-                SET cantidad = $1
-                WHERE id_detalle_producto = $2 AND id_detalle_proceso = $3`,
-                [nuevaCantidad, idDetalle, idDetalleProcesoSiguiente]
-              );
-            } else {
-              await db.query(
-                `INSERT INTO producto_proceso 
-                (id_detalle_producto, id_detalle_proceso, cantidad) 
-                VALUES ($1, $2, $3)`,
-                [idDetalle, idDetalleProcesoSiguiente, cantidadAvanzar]
-              );
-            }
-          }
-          
-          // Actualizar la cantidad en el proceso actual
-          const nuevaCantidadProcesoActual = cantidadEnProcesoActual - cantidadAvanzar;
-          
-          if (nuevaCantidadProcesoActual === 0) {
-            // Si no queda cantidad, eliminar el registro del proceso actual
-            if (idConfeccionista && parseInt(idProcesoActual) === 4) {
-              await db.query(
-                `DELETE FROM producto_proceso pp
-                WHERE pp.id_detalle_producto = $1 
-                AND pp.id_detalle_proceso IN (
-                  SELECT dp.id_detalle_proceso 
-                  FROM detalle_proceso dp 
-                  WHERE dp.id_orden = $2 AND dp.id_proceso = $3 AND dp.estado = 'En Proceso'
-                ) AND pp.id_confeccionista = $4`,
-                [idDetalle, idOrden, idProcesoActual, idConfeccionista]
-              );
-            } else {
-              await db.query(
-                `DELETE FROM producto_proceso pp
-                WHERE pp.id_detalle_producto = $1 
-                AND pp.id_detalle_proceso IN (
-                  SELECT dp.id_detalle_proceso 
-                  FROM detalle_proceso dp 
-                  WHERE dp.id_orden = $2 AND dp.id_proceso = $3 AND dp.estado = 'En Proceso'
-                )`,
-                [idDetalle, idOrden, idProcesoActual]
-              );
-            }
-          } else {
-            // Si queda cantidad, actualizar el registro
-            if (idConfeccionista && parseInt(idProcesoActual) === 4) {
-              await db.query(
-                `UPDATE producto_proceso 
-                SET cantidad = $1
-                WHERE id_detalle_producto = $2 
-                AND id_detalle_proceso IN (
-                  SELECT dp.id_detalle_proceso 
-                  FROM detalle_proceso dp 
-                  WHERE dp.id_orden = $3 AND dp.id_proceso = $4 AND dp.estado = 'En Proceso'
-                ) AND id_confeccionista = $5`,
-                [nuevaCantidadProcesoActual, idDetalle, idOrden, idProcesoActual, idConfeccionista]
-              );
-            } else {
-              await db.query(
-                `UPDATE producto_proceso 
-                SET cantidad = $1
-                WHERE id_detalle_producto = $2 
-                AND id_detalle_proceso IN (
-                  SELECT dp.id_detalle_proceso 
-                  FROM detalle_proceso dp 
-                  WHERE dp.id_orden = $3 AND dp.id_proceso = $4 AND dp.estado = 'En Proceso'
-                )`,
-                [nuevaCantidadProcesoActual, idDetalle, idOrden, idProcesoActual]
-              );
-            }
           }
         }
       }
-      
-      // 3. Verificar si ya no quedan productos en el proceso actual
-      const productosRestantesQuery = await db.query(
-        `SELECT COUNT(*) as count
-        FROM producto_proceso pp
-        JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
-        WHERE dp.id_orden = $1 AND dp.id_proceso = $2 AND dp.estado = 'En Proceso'`,
+    }
+    
+    // 3. Verificar si ya no quedan productos en el proceso actual
+    const productosRestantesQuery = await db.query(
+      `SELECT COUNT(*) as count
+      FROM producto_proceso pp
+      JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+      WHERE dp.id_orden = $1 AND dp.id_proceso = $2 AND dp.estado = 'En Proceso'`,
+      [idOrden, idProcesoActual]
+    );
+    
+    // Si no quedan productos en el proceso actual, cerramos ese proceso
+    if (parseInt(productosRestantesQuery.rows[0].count) === 0) {
+      await db.query(
+        `UPDATE detalle_proceso 
+        SET estado = 'Completado', fecha_final_proceso = CURRENT_TIMESTAMP 
+        WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'`,
         [idOrden, idProcesoActual]
       );
-      
-      // Si no quedan productos en el proceso actual, cerramos ese proceso
-      if (parseInt(productosRestantesQuery.rows[0].count) === 0) {
-        await db.query(
-          `UPDATE detalle_proceso 
-          SET estado = 'Completado', fecha_final_proceso = CURRENT_TIMESTAMP 
-          WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'`,
-          [idOrden, idProcesoActual]
-        );
-      }
-      
-      await db.query('COMMIT');
-      return true;
-    } catch (error) {
-      await db.query('ROLLBACK');
-      throw error;
     }
+    
+    await db.query('COMMIT');
+    return true;
+  } catch (error) {
+    await db.query('ROLLBACK');
+    throw error;
+  }
   }
 
   // Obtener órdenes por proceso

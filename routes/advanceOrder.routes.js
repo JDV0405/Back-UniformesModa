@@ -126,17 +126,63 @@ router.get('/orden/:idOrden/proceso/:idProceso', advanceOrderController.getProdu
  *           schema:
  *             type: object
  *             properties:
- *               detalles:
+ *               idOrden:
+ *                 type: integer
+ *                 description: ID de la orden
+ *                 example: 123
+ *               idProcesoActual:
+ *                 type: integer
+ *                 description: ID del proceso actual
+ *                 example: 3
+ *               idProcesoSiguiente:
+ *                 type: integer
+ *                 description: ID del proceso siguiente
+ *                 example: 4
+ *               cedulaEmpleadoActual:
+ *                 type: string
+ *                 description: Cédula del empleado responsable
+ *                 example: "12345678"
+ *               itemsToAdvance:
  *                 type: array
  *                 items:
- *                   type: integer
- *                 description: Array con los IDs de los detalles (productos) a avanzar
- *                 example: [42, 43, 44]
+ *                   type: object
+ *                   properties:
+ *                     idDetalle:
+ *                       type: integer
+ *                       description: ID del detalle del producto
+ *                       example: 42
+ *                     cantidadAvanzar:
+ *                       type: integer
+ *                       description: Cantidad a avanzar
+ *                       example: 10
+ *                     idConfeccionista:
+ *                       type: integer
+ *                       description: ID del confeccionista (requerido para transición cortes->confección)
+ *                       example: 5
+ *                     fechaRecibido:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Fecha cuando el confeccionista recibe el trabajo (requerido para confeccionistas)
+ *                       example: "2025-06-15T08:00:00Z"
+ *                     fechaEntrega:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Fecha estimada de entrega del confeccionista (requerido para confeccionistas)
+ *                       example: "2025-06-20T18:00:00Z"
+ *                     idProductoProceso:
+ *                       type: integer
+ *                       description: ID específico del producto_proceso (requerido cuando se avanza desde confección)
+ *                       example: 78
  *               observaciones:
  *                 type: string
  *                 description: Notas adicionales sobre el avance
+ *                 example: "Material premium, revisar calidad"
  *             required:
- *               - detalles
+ *               - idOrden
+ *               - idProcesoActual
+ *               - idProcesoSiguiente
+ *               - cedulaEmpleadoActual
+ *               - itemsToAdvance
  *     responses:
  *       200:
  *         description: Productos avanzados correctamente
@@ -150,9 +196,23 @@ router.get('/orden/:idOrden/proceso/:idProceso', advanceOrderController.getProdu
  *                   example: true
  *                 message:
  *                   type: string
- *                   example: "Productos avanzados al siguiente proceso correctamente"
+ *                   example: "Productos avanzados exitosamente al siguiente proceso"
  *       400:
  *         description: Error en los datos enviados
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   examples:
+ *                     fechasFaltantes: "Se debe especificar fecha de recibido y fecha de entrega cuando se asigna trabajo a un confeccionista"
+ *                     fechasInvalidas: "La fecha de entrega debe ser posterior a la fecha de recibido"
+ *                     confeccionistaFaltante: "Se debe asignar un confeccionista cuando se pasa del proceso de cortes a confección"
  *       500:
  *         description: Error del servidor
  */
@@ -439,5 +499,7 @@ router.get('/ordersCompleted', advanceOrderController.getCompletedOrders);
  */
 router.get('/ordenes-completadas/:idOrden', advanceOrderController.getCompletedOrderDetail);
 
+// Obtener confeccionistas activos
+router.get('/confeccionistas', advanceOrderController.getActiveConfeccionistas);
 
 module.exports = router;
