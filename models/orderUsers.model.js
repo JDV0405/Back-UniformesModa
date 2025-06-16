@@ -117,7 +117,7 @@ const getOrderDetailsById = async (orderId) => {
       delete order.telefono_info;
     }
     
-    // MODIFICADO: Obtener productos con información del proceso actual
+    // MODIFICADO: Obtener productos con información del proceso actual y confeccionista
     const productsQuery = await pool.query(
       `SELECT 
         dpo.*, 
@@ -127,7 +127,7 @@ const getOrderDetailsById = async (orderId) => {
           'nombre_categoria', c.nombre_categoria,
           'descripcion', c.descripcion
         ) AS categoria,
-        -- NUEVO: Información del proceso actual del producto
+        -- Información del proceso actual del producto
         COALESCE(
           (
             SELECT dp.id_proceso
@@ -148,7 +148,28 @@ const getOrderDetailsById = async (orderId) => {
             ORDER BY dp.fecha_inicio_proceso DESC
             LIMIT 1
           ), 'Sin proceso asignado'
-        ) AS nombre_proceso_actual
+        ) AS nombre_proceso_actual,
+        -- MODIFICADO: Información del confeccionista asignado con nombre del producto
+        (
+          SELECT json_build_object(
+            'id_confeccionista', conf.id_confeccionista,
+            'cedula', conf.cedula,
+            'nombre', conf.nombre,
+            'telefono', conf.telefono,
+            'activo', conf.activo,
+            'fecha_recibido', pp.fecha_recibido,
+            'fecha_entrega', pp.fecha_entrega,
+            'fecha_registro', pp.fecha_registro,
+            'cantidad_asignada', pp.cantidad,
+            'nombre_producto', p.nombre_producto
+          )
+          FROM producto_proceso pp
+          JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+          LEFT JOIN confeccionista conf ON pp.id_confeccionista = conf.id_confeccionista
+          WHERE pp.id_detalle_producto = dpo.id_detalle
+          ORDER BY dp.fecha_inicio_proceso DESC
+          LIMIT 1
+        ) AS confeccionista_info
       FROM detalle_producto_orden dpo
       JOIN producto p ON dpo.id_producto = p.id_producto
       JOIN categoria c ON p.id_categoria = c.id_categoria
@@ -157,7 +178,7 @@ const getOrderDetailsById = async (orderId) => {
       [orderId]
     );
     
-    // Obtener procesos de la orden
+    // MODIFICADO: Obtener procesos de la orden con información detallada del confeccionista y nombres de productos
     const processesQuery = await pool.query(
       `SELECT 
         dp.*, 
@@ -175,7 +196,31 @@ const getOrderDetailsById = async (orderId) => {
           SELECT SUM(pp.cantidad)
           FROM producto_proceso pp
           WHERE pp.id_detalle_proceso = dp.id_detalle_proceso
-        ) as cantidad_total_proceso
+        ) as cantidad_total_proceso,
+        -- MODIFICADO: Información de confeccionistas en este proceso con nombres de productos
+        (
+          SELECT json_agg(
+            json_build_object(
+              'id_confeccionista', conf.id_confeccionista,
+              'cedula', conf.cedula,
+              'nombre', conf.nombre,
+              'telefono', conf.telefono,
+              'cantidad_asignada', pp.cantidad,
+              'fecha_recibido', pp.fecha_recibido,
+              'fecha_entrega', pp.fecha_entrega,
+              'fecha_registro', pp.fecha_registro,
+              'id_producto_proceso', pp.id_producto_proceso,
+              'nombre_producto', prod.nombre_producto,
+              'id_producto', prod.id_producto
+            )
+          )
+          FROM producto_proceso pp
+          LEFT JOIN confeccionista conf ON pp.id_confeccionista = conf.id_confeccionista
+          LEFT JOIN detalle_producto_orden dpo ON pp.id_detalle_producto = dpo.id_detalle
+          LEFT JOIN producto prod ON dpo.id_producto = prod.id_producto
+          WHERE pp.id_detalle_proceso = dp.id_detalle_proceso
+            AND conf.id_confeccionista IS NOT NULL
+        ) as confeccionistas_asignados
       FROM detalle_proceso dp
       JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
       JOIN empleado e ON dp.cedula_empleado = e.cedula
@@ -184,7 +229,7 @@ const getOrderDetailsById = async (orderId) => {
       [orderId]
     );
     
-    // Procesamiento de colores (código existente)
+    // Procesamiento de colores
     const colorsQuery = await pool.query(
       `SELECT id_color, nombre_color, codigo_hex FROM color`
     );
@@ -198,7 +243,7 @@ const getOrderDetailsById = async (orderId) => {
       };
     });
     
-    // Procesamiento de estampados (código existente)
+    // Procesamiento de estampados
     const estampadosQuery = await pool.query(
       `SELECT id_estampado, nombre_estampado FROM estampado`
     );
@@ -211,7 +256,7 @@ const getOrderDetailsById = async (orderId) => {
       };
     });
     
-    // MODIFICADO: Procesamiento de productos con información del proceso actual
+    // MODIFICADO: Procesamiento de productos con información del confeccionista
     const productosConColores = productsQuery.rows.map(producto => {
       const productoConColor = { ...producto };
       
@@ -220,7 +265,15 @@ const getOrderDetailsById = async (orderId) => {
         productoConColor.atributosusuario = {};
       }
       
-      // Procesamiento de color (código existente)
+      // Procesamiento de confeccionista
+      if (productoConColor.confeccionista_info) {
+        productoConColor.confeccionista = productoConColor.confeccionista_info;
+        delete productoConColor.confeccionista_info;
+      } else {
+        productoConColor.confeccionista = null;
+      }
+      
+      // Procesamiento de color
       if (productoConColor.atributosusuario.color) {
         const nombreColor = productoConColor.atributosusuario.color.toLowerCase();
         
@@ -249,7 +302,7 @@ const getOrderDetailsById = async (orderId) => {
         productoConColor.color_hexadecimal = null;
       }
       
-      // Procesamiento de estampado (código existente)
+      // Procesamiento de estampado
       if (productoConColor.atributosusuario.estampado) {
         const nombreEstampado = productoConColor.atributosusuario.estampado.toLowerCase();
         
@@ -277,6 +330,7 @@ const getOrderDetailsById = async (orderId) => {
       return productoConColor;
     });
 
+    // Procesamiento del comprobante de pago
     let comprobanteBase64 = null;
     if (orderBasicInfo.url_comprobante) {
       try {
@@ -289,7 +343,6 @@ const getOrderDetailsById = async (orderId) => {
           const mimeType = imageExtension === '.png' ? 'image/png' : 'image/jpeg';
           comprobanteBase64 = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
         } else {
-          
           const alternativePath = orderBasicInfo.url_comprobante.replace(/\//g, '\\');
           const fullAlternativePath = `C:\\Users\\Asus\\Desktop\\${alternativePath}`;
           
