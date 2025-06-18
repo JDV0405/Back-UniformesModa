@@ -7,20 +7,30 @@ const upload = multer({
     storage: storage,
     limits: {
         fileSize: 10 * 1024 * 1024, // 10MB por archivo
-        files: 20 // Máximo 20 archivos
+        files: 30, // Aumentado para más archivos
+        fields: 100, // Más campos de texto
+        fieldNameSize: 200, // Nombres de campos más largos
+        fieldSize: 10 * 1024 * 1024, // 10MB para campos de texto muy largos (como JSON)
+        parts: 150, // Más partes en total
+        headerPairs: 2000 // Más pares de headers
     }
 });
 
-const uploadMiddleware = upload.fields([
-    { name: 'comprobanteFile', maxCount: 1 }, // Comprobante de pago
-    { name: 'productImages', maxCount: 10 }, // Imágenes de productos (genérico)
-    // Campos dinámicos para imágenes por producto
-    { name: 'productImages_0', maxCount: 5 },
-    { name: 'productImages_1', maxCount: 5 },
-    { name: 'productImages_2', maxCount: 5 },
-    { name: 'productImages_3', maxCount: 5 },
-    { name: 'productImages_4', maxCount: 5 }
-]);
+const createFieldsConfig = (maxProducts = 20) => {
+    const fields = [
+        { name: 'comprobanteFile', maxCount: 1 },
+        { name: 'productImages', maxCount: 30 }
+    ];
+    
+    // Generar dinámicamente campos para productos
+    for (let i = 0; i < maxProducts; i++) {
+        fields.push({ name: `productImages_${i}`, maxCount: 5 });
+    }
+    
+    return fields;
+};
+
+const uploadMiddleware = upload.fields(createFieldsConfig(50));
 
 async function createOrder(req, res) {
     try {
