@@ -23,6 +23,11 @@ app.use(cors({
 // Servir archivos estáticos desde la carpeta Uniformes_Imagenes
 app.use('/images', express.static(path.join(__dirname, 'Uniformes_Imagenes')));
 
+// Aumentar límites para JSON y URL-encoded
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+
 // Middleware
 app.use(express.json());
 
