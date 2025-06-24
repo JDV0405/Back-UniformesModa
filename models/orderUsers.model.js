@@ -228,6 +228,19 @@ const getOrderDetailsById = async (orderId) => {
       ORDER BY dp.fecha_inicio_proceso ASC`,
       [orderId]
     );
+
+    const valoracionQuery = await pool.query(
+      `SELECT 
+        id_valoracion,
+        estrellas,
+        comentario,
+        fecha_valoracion
+       FROM valoracion
+       WHERE id_orden_produccion = $1`,
+      [orderId]
+    );
+
+    const valoracion = valoracionQuery.rows.length > 0 ? valoracionQuery.rows[0] : null;
     
     // Procesamiento de colores
     const colorsQuery = await pool.query(
@@ -368,7 +381,8 @@ const getOrderDetailsById = async (orderId) => {
       productos: productosConColores,
       procesos: processesQuery.rows,
       proceso_actual: processesQuery.rows.length > 0 ? 
-        processesQuery.rows[processesQuery.rows.length - 1] : null
+        processesQuery.rows[processesQuery.rows.length - 1] : null,
+      valoracion: valoracion // Añadida la información de valoración a la respuesta
     };
   } catch (error) {
     throw new Error(`Error al obtener detalles de la orden: ${error.message}`);
