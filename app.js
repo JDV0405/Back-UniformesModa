@@ -9,6 +9,7 @@ const productRoutes = require('./routes/getProductsAndAttributes.routes');
 const advanceOrderRoutes = require('./routes/advanceOrder.routes.js');
 const createElementsRoutes = require('./routes/createElements.routes.js');
 const valoracionesRoutes = require('./routes/valoracion.routes.js');
+const confeccionistaRoutes = require('./routes/confeccionista.routes.js'); 
 const path = require('path');
 
 // Swagger
@@ -44,6 +45,7 @@ app.use('/api', productRoutes);
 app.use('/api/produccion', advanceOrderRoutes);
 app.use('/api', createElementsRoutes);
 app.use('/api/valoraciones', valoracionesRoutes);
+app.use('/api/confeccionistas', confeccionistaRoutes);
 
 
 // Use routes
