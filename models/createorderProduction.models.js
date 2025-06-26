@@ -31,7 +31,7 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
         const orderId = await createProductionOrder(
             client, 
             clientId, 
-            orderData.fechaAproximada || new Date(),
+            null,
             paymentInfo.tipoPago,
             comprobanteId,
             orderData.observaciones,
@@ -130,7 +130,7 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
             data: {
                 id_orden: orderId,
                 id_cliente: clientId,
-                fecha_aproximada: orderData.fechaAproximada || new Date(),
+                fecha_aproximada: null,
                 tipo_pago: paymentInfo.tipoPago,
                 id_comprobante_pago: comprobanteId,
                 observaciones: orderData.observaciones,
@@ -371,21 +371,21 @@ async function createProductionOrder(client, clientId, dueDate, paymentType, com
     let query, params;
     
     if (comprobanteId === null) {
-        // Si no hay comprobante, excluir el campo id_comprobante_pago
+        // Si no hay comprobante, excluir el campo id_comprobante_pago Y fecha_aproximada
         query = `INSERT INTO orden_produccion(
-            id_cliente, fecha_aproximada, tipo_pago,
+            id_cliente, tipo_pago,
+            observaciones, cedula_empleado_responsable, id_direccion
+        ) VALUES($1, $2, $3, $4, $5) RETURNING id_orden`;
+        
+        params = [clientId, paymentType, observations, employeeId, direccionId];
+    } else {
+        // Si hay comprobante, incluir el campo id_comprobante_pago pero no fecha_aproximada
+        query = `INSERT INTO orden_produccion(
+            id_cliente, tipo_pago, id_comprobante_pago,
             observaciones, cedula_empleado_responsable, id_direccion
         ) VALUES($1, $2, $3, $4, $5, $6) RETURNING id_orden`;
         
-        params = [clientId, dueDate, paymentType, observations, employeeId, direccionId];
-    } else {
-        // Si hay comprobante, incluir el campo id_comprobante_pago
-        query = `INSERT INTO orden_produccion(
-            id_cliente, fecha_aproximada, tipo_pago, id_comprobante_pago,
-            observaciones, cedula_empleado_responsable, id_direccion
-        ) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING id_orden`;
-        
-        params = [clientId, dueDate, paymentType, comprobanteId, observations, employeeId, direccionId];
+        params = [clientId, paymentType, comprobanteId, observations, employeeId, direccionId];
     }
     
     const result = await client.query(query, params);
