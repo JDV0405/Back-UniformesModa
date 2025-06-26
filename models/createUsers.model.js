@@ -26,9 +26,57 @@ const crearUsuario = async ({ cedula_empleado, email, contrasena }) => {
   );
 };
 
+const obtenerTodosLosUsuarios = async () => {
+  const result = await pool.query(`
+    SELECT 
+      e.cedula,
+      e.nombre,
+      e.apellidos,
+      e.estado,
+      e.id_rol,
+      e.telefono,
+      u.email,
+      u.id_usuario
+    FROM empleado e
+    INNER JOIN usuario u ON e.cedula = u.cedula_empleado
+    ORDER BY e.nombre, e.apellidos
+  `);
+  return result.rows;
+};
+
+const actualizarUsuario = async ({ cedula, nombre, apellidos, estado, id_rol, telefono, email }) => {
+  // Actualizar tabla empleado
+  await pool.query(
+    `UPDATE empleado 
+     SET nombre = $2, apellidos = $3, estado = $4, id_rol = $5, telefono = $6
+     WHERE cedula = $1`,
+    [cedula, nombre, apellidos, estado, id_rol, telefono]
+  );
+
+  // Actualizar tabla usuario
+  await pool.query(
+    `UPDATE usuario 
+     SET email = $2
+     WHERE cedula_empleado = $1`,
+    [cedula, email]
+  );
+};
+
+const actualizarContrasenaUsuario = async ({ cedula, contrasena }) => {
+  await pool.query(
+    `UPDATE usuario 
+     SET contrasena = $2
+     WHERE cedula_empleado = $1`,
+    [cedula, contrasena]
+  );
+};
+
 module.exports = {
   buscarEmpleadoPorCedula,
   buscarUsuarioPorEmail,
   crearEmpleado,
-  crearUsuario
+  crearUsuario,
+  obtenerTodosLosUsuarios,
+  actualizarUsuario,
+  actualizarContrasenaUsuario
 };

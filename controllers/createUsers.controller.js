@@ -31,6 +31,60 @@ const crearUsuario = async (req, res) => {
   }
 };
 
+const obtenerTodosLosUsuarios = async (req, res) => {
+  try {
+    const usuarios = await usuarioModel.obtenerTodosLosUsuarios();
+    res.status(200).json(usuarios);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ mensaje: 'Error al obtener usuarios' });
+  }
+};
+
+const editarUsuario = async (req, res) => {
+  const { cedula } = req.params;
+  const {
+    nombre, apellidos, estado, id_rol, telefono, emailUsuario, contrasena
+  } = req.body;
+
+  try {
+    const empleadoExistente = await usuarioModel.buscarEmpleadoPorCedula(cedula);
+    if (!empleadoExistente) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    // Verificar si el email ya está en uso por otro usuario
+    const usuarioConEmail = await usuarioModel.buscarUsuarioPorEmail(emailUsuario);
+    if (usuarioConEmail && usuarioConEmail.cedula_empleado !== cedula) {
+      return res.status(400).json({ mensaje: 'El correo ya está en uso por otro usuario' });
+    }
+
+    // Actualizar datos del usuario
+    await usuarioModel.actualizarUsuario({
+      cedula,
+      nombre,
+      apellidos,
+      estado,
+      id_rol,
+      telefono,
+      email: emailUsuario
+    });
+
+    // Si se proporciona una nueva contraseña, actualizarla
+    if (contrasena && contrasena.trim() !== '') {
+      const hashedPassword = await bcrypt.hash(contrasena, 10);
+      await usuarioModel.actualizarContrasenaUsuario({ cedula, contrasena: hashedPassword });
+    }
+
+    res.status(200).json({ mensaje: 'Usuario actualizado con éxito' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ mensaje: 'Error al actualizar usuario' });
+  }
+};
+
 module.exports = {
-  crearUsuario
+  crearUsuario,
+  obtenerTodosLosUsuarios,
+  editarUsuario
 };
