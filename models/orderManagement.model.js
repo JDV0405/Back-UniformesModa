@@ -6,12 +6,12 @@ const UserModel = {
     try {
       const query = `
         SELECT u.id_usuario, u.email, u.contrasena, u.activo, 
-              e.cedula, e.nombre, e.apellidos, e.estado, 
+              e.cedula, e.nombre, e.apellidos, e.activo as empleado_activo, 
               r.id_rol, r.nombre_rol 
         FROM usuario u
         JOIN empleado e ON u.cedula_empleado = e.cedula
         JOIN rol r ON e.id_rol = r.id_rol
-        WHERE u.email = $1 AND u.activo = true AND e.estado = true
+        WHERE u.email = $1 AND u.activo = true AND e.activo = true
       `;
       const result = await pool.query(query, [email]);
       
@@ -39,7 +39,7 @@ const UserModel = {
   getEmployeeByUserId: async (userId) => {
     try {
       const query = `
-        SELECT e.cedula, e.nombre, e.apellidos, e.estado, e.telefono,
+        SELECT e.cedula, e.nombre, e.apellidos, e.activo, e.telefono,
               r.id_rol, r.nombre_rol, r.descripcion
         FROM usuario u
         JOIN empleado e ON u.cedula_empleado = e.cedula

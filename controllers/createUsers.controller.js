@@ -3,7 +3,7 @@ const usuarioModel = require('../models/createUsers.model.js');
 
 const crearUsuario = async (req, res) => {
   const {
-    cedula, nombre, apellidos, estado = true, id_rol,
+    cedula, nombre, apellidos, activo = true, id_rol,
     telefono, emailUsuario, contrasena
   } = req.body;
 
@@ -18,7 +18,7 @@ const crearUsuario = async (req, res) => {
       return res.status(400).json({ mensaje: 'Correo ya está en uso' });
     }
 
-    await usuarioModel.crearEmpleado({ cedula, nombre, apellidos, estado, id_rol, telefono });
+    await usuarioModel.crearEmpleado({ cedula, nombre, apellidos, activo, id_rol, telefono });
 
     const hashedPassword = await bcrypt.hash(contrasena, 10);
 
@@ -44,7 +44,7 @@ const obtenerTodosLosUsuarios = async (req, res) => {
 const editarUsuario = async (req, res) => {
   const { cedula } = req.params;
   const {
-    nombre, apellidos, estado, id_rol, telefono, emailUsuario, contrasena
+    nombre, apellidos, activo, id_rol, telefono, emailUsuario, contrasena
   } = req.body;
 
   try {
@@ -59,12 +59,12 @@ const editarUsuario = async (req, res) => {
       return res.status(400).json({ mensaje: 'El correo ya está en uso por otro usuario' });
     }
 
-    // Actualizar datos del usuario
+    // Actualizar datos del usuario (incluyendo sincronización del campo activo)
     await usuarioModel.actualizarUsuario({
       cedula,
       nombre,
       apellidos,
-      estado,
+      activo,
       id_rol,
       telefono,
       email: emailUsuario
