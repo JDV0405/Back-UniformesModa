@@ -21,7 +21,7 @@ const usuarioController = require('../controllers/createUsers.controller.js');
  *                 type: string
  *               apellidos:
  *                 type: string
- *               estado:
+ *               activo:
  *                 type: boolean
  *               telefono:
  *                 type: string
@@ -64,7 +64,7 @@ router.post('/usuarios', usuarioController.crearUsuario);
  *                     type: string
  *                   apellidos:
  *                     type: string
- *                   estado:
+ *                   activo:
  *                     type: boolean
  *                   id_rol:
  *                     type: string
@@ -74,6 +74,8 @@ router.post('/usuarios', usuarioController.crearUsuario);
  *                     type: string
  *                   id_usuario:
  *                     type: integer
+ *                   usuario_activo:
+ *                     type: boolean
  *       500:
  *         description: Error interno del servidor
  */
@@ -104,8 +106,9 @@ router.get('/usuarios', usuarioController.obtenerTodosLosUsuarios);
  *                 type: string
  *               apellidos:
  *                 type: string
- *               estado:
+ *               activo:
  *                 type: boolean
+ *                 description: Estado activo del usuario. Si se establece en false, desactiva tanto el empleado como el usuario
  *               telefono:
  *                 type: string
  *               contrasena:
