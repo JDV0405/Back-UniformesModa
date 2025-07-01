@@ -348,7 +348,7 @@ const getOrderDetailsById = async (orderId) => {
     if (orderBasicInfo.url_comprobante) {
       try {
         const fileName = path.basename(orderBasicInfo.url_comprobante);
-        const imagePath = path.join('C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
+        const imagePath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
         
         if (fs.existsSync(imagePath)) {
           const imageBuffer = fs.readFileSync(imagePath);
@@ -357,7 +357,7 @@ const getOrderDetailsById = async (orderId) => {
           comprobanteBase64 = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
         } else {
           const alternativePath = orderBasicInfo.url_comprobante.replace(/\//g, '\\');
-          const fullAlternativePath = `C:\\Users\\user\\Desktop\\${alternativePath}`;
+          const fullAlternativePath = `C:\\Users\\Asus\\Desktop\\${alternativePath}`;
           
           if (fs.existsSync(fullAlternativePath)) {
             const imageBuffer = fs.readFileSync(fullAlternativePath);
@@ -454,7 +454,7 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
     if (orderInfo.url_comprobante) {
       try {
         const fileName = path.basename(orderInfo.url_comprobante);
-        const imagePath = path.join('C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
+        const imagePath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
         
         if (fs.existsSync(imagePath)) {
           const imageBuffer = fs.readFileSync(imagePath);
@@ -463,7 +463,7 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
           comprobanteBase64 = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
         } else {
           const alternativePath = orderInfo.url_comprobante.replace(/\//g, '\\');
-          const fullAlternativePath = `C:\\Users\\user\\Desktop\\${alternativePath}`;
+          const fullAlternativePath = `C:\\Users\\Asus\\Desktop\\${alternativePath}`;
           
           if (fs.existsSync(fullAlternativePath)) {
             const imageBuffer = fs.readFileSync(fullAlternativePath);
