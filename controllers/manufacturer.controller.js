@@ -204,7 +204,7 @@ const ConfeccionistaController = {
       }
       
       // Validar datos de entrada
-      if (cedula !== undefined && isNaN(parseInt(cedula))) {
+      if (cedula !== undefined && cedula !== null && isNaN(parseInt(cedula))) {
         return res.status(400).json({
           success: false,
           message: 'La cédula debe ser un número válido'

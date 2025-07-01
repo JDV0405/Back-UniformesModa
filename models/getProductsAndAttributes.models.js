@@ -66,7 +66,7 @@ const getCitiesByDepartment = async (departmentId) => {
 const getAssesorEmployee = async () => {
   try {
     const query = `
-      SELECT cedula, nombre
+      SELECT cedula, nombre, activo
       FROM Empleado
       WHERE id_rol = 2
     `;

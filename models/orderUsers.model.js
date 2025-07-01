@@ -348,7 +348,7 @@ const getOrderDetailsById = async (orderId) => {
     if (orderBasicInfo.url_comprobante) {
       try {
         const fileName = path.basename(orderBasicInfo.url_comprobante);
-        const imagePath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
+        const imagePath = path.join('C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
         
         if (fs.existsSync(imagePath)) {
           const imageBuffer = fs.readFileSync(imagePath);
@@ -454,7 +454,7 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
     if (orderInfo.url_comprobante) {
       try {
         const fileName = path.basename(orderInfo.url_comprobante);
-        const imagePath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
+        const imagePath = path.join('C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
         
         if (fs.existsSync(imagePath)) {
           const imageBuffer = fs.readFileSync(imagePath);
