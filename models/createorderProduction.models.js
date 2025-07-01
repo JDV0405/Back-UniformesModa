@@ -319,7 +319,6 @@ async function createOrUpdateClient(client, clientData) {
 }
 
 async function addClientPhone(client, clientId, phoneNumber, phoneType) {
-    // Check if phone exists
     const checkPhone = await client.query(
         'SELECT id_telefono FROM telefono_cliente WHERE id_cliente = $1 AND telefono = $2',
         [clientId, phoneNumber]
