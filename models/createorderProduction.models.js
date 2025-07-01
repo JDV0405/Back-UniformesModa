@@ -366,7 +366,7 @@ async function addClientAddress(client, clientId, address, cityId, departmentId)
     return addressResult.rows[0].id_direccion;
 }
 
-async function createProductionOrder(client, clientId, dueDate, paymentType, comprobanteId, observations, employeeId, direccionId) {
+async function createProductionOrder(client, clientId, paymentType, comprobanteId, observations, employeeId, direccionId) {
     // Query con manejo condicional para id_comprobante_pago
     let query, params;
     
