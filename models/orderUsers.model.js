@@ -286,6 +286,17 @@ const getOrderDetailsById = async (orderId) => {
         productoConColor.confeccionista = null;
       }
       
+      // Convertir url_producto a base64
+      if (productoConColor.url_producto) {
+        const base64Image = convertImageToBase64(productoConColor.url_producto);
+        if (base64Image) {
+          productoConColor.url_producto = base64Image;
+        }
+      }
+      
+      // Procesar imágenes en atributos de usuario
+      productoConColor.atributosusuario = processAttributesImages(productoConColor.atributosusuario);
+      
       // Procesamiento de color
       if (productoConColor.atributosusuario.color) {
         const nombreColor = productoConColor.atributosusuario.color.toLowerCase();
@@ -346,29 +357,7 @@ const getOrderDetailsById = async (orderId) => {
     // Procesamiento del comprobante de pago
     let comprobanteBase64 = null;
     if (orderBasicInfo.url_comprobante) {
-      try {
-        const fileName = path.basename(orderBasicInfo.url_comprobante);
-        const imagePath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
-        
-        if (fs.existsSync(imagePath)) {
-          const imageBuffer = fs.readFileSync(imagePath);
-          const imageExtension = path.extname(imagePath).toLowerCase();
-          const mimeType = imageExtension === '.png' ? 'image/png' : 'image/jpeg';
-          comprobanteBase64 = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
-        } else {
-          const alternativePath = orderBasicInfo.url_comprobante.replace(/\//g, '\\');
-          const fullAlternativePath = `C:\\Users\\Asus\\Desktop\\${alternativePath}`;
-          
-          if (fs.existsSync(fullAlternativePath)) {
-            const imageBuffer = fs.readFileSync(fullAlternativePath);
-            const imageExtension = path.extname(fullAlternativePath).toLowerCase();
-            const mimeType = imageExtension === '.png' ? 'image/png' : 'image/jpeg';
-            comprobanteBase64 = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
-          }
-        }
-      } catch (error) {
-        console.log('Error al convertir comprobante a base64:', error);
-      }
+      comprobanteBase64 = convertImageToBase64(orderBasicInfo.url_comprobante);
     }
     
     return {
@@ -452,29 +441,7 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
     // Procesar comprobante a base64 si existe
     let comprobanteBase64 = null;
     if (orderInfo.url_comprobante) {
-      try {
-        const fileName = path.basename(orderInfo.url_comprobante);
-        const imagePath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
-        
-        if (fs.existsSync(imagePath)) {
-          const imageBuffer = fs.readFileSync(imagePath);
-          const imageExtension = path.extname(imagePath).toLowerCase();
-          const mimeType = imageExtension === '.png' ? 'image/png' : 'image/jpeg';
-          comprobanteBase64 = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
-        } else {
-          const alternativePath = orderInfo.url_comprobante.replace(/\//g, '\\');
-          const fullAlternativePath = `C:\\Users\\Asus\\Desktop\\${alternativePath}`;
-          
-          if (fs.existsSync(fullAlternativePath)) {
-            const imageBuffer = fs.readFileSync(fullAlternativePath);
-            const imageExtension = path.extname(fullAlternativePath).toLowerCase();
-            const mimeType = imageExtension === '.png' ? 'image/png' : 'image/jpeg';
-            comprobanteBase64 = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
-          }
-        }
-      } catch (error) {
-        console.log('Error al convertir comprobante a base64:', error);
-      }
+      comprobanteBase64 = convertImageToBase64(orderInfo.url_comprobante);
     }
 
     // Consulta principal para obtener productos por orden y proceso
@@ -556,6 +523,17 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
       if (!productoConColor.atributosusuario) {
         productoConColor.atributosusuario = {};
       }
+      
+      // Convertir url_producto a base64
+      if (productoConColor.url_producto) {
+        const base64Image = convertImageToBase64(productoConColor.url_producto);
+        if (base64Image) {
+          productoConColor.url_producto = base64Image;
+        }
+      }
+      
+      // Procesar imágenes en atributos de usuario
+      productoConColor.atributosusuario = processAttributesImages(productoConColor.atributosusuario);
       
       // Procesamiento de color
       if (productoConColor.atributosusuario.color) {
@@ -652,8 +630,105 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
   }
 };
 
+// Función para convertir imagen a base64 desde ruta
+const convertImageToBase64 = (imagePath) => {
+  try {
+    if (!imagePath) return null;
+    
+    // Intentar primero con el nombre del archivo directamente
+    const fileName = path.basename(imagePath);
+    
+    // Determinar el tipo de imagen para construir la ruta correcta
+    let fullPath = '';
+    
+    // Si la ruta contiene "productos", es una imagen de producto
+    if (imagePath.includes('productos')) {
+      fullPath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\productos', fileName);
+    }
+    // Si la ruta contiene "atributos", es una imagen de atributo
+    else if (imagePath.includes('atributos')) {
+      fullPath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\atributos', fileName);
+    }
+    // Si la ruta contiene "comprobantes", es un comprobante
+    else if (imagePath.includes('comprobantes')) {
+      fullPath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
+    }
+    // Si no se puede determinar, usar la ruta completa como alternativa
+    else {
+      const alternativePath = imagePath.replace(/\//g, '\\');
+      fullPath = `C:\\Users\\Asus\\Desktop\\${alternativePath}`;
+    }
+    
+    // Verificar si el archivo existe
+    if (fs.existsSync(fullPath)) {
+      const imageBuffer = fs.readFileSync(fullPath);
+      const imageExtension = path.extname(fullPath).toLowerCase();
+      const mimeType = imageExtension === '.png' ? 'image/png' : 'image/jpeg';
+      return `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+    } else {
+      // Intentar con la ruta alternativa
+      const alternativePath = imagePath.replace(/\//g, '\\');
+      const fullAlternativePath = `C:\\Users\\Asus\\Desktop\\${alternativePath}`;
+      
+      if (fs.existsSync(fullAlternativePath)) {
+        const imageBuffer = fs.readFileSync(fullAlternativePath);
+        const imageExtension = path.extname(fullAlternativePath).toLowerCase();
+        const mimeType = imageExtension === '.png' ? 'image/png' : 'image/jpeg';
+        return `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.log('Error al convertir imagen a base64:', error);
+    return null;
+  }
+};
+
+// Función para procesar atributos de usuario y convertir imágenes a base64
+const processAttributesImages = (atributos) => {
+  if (!atributos || typeof atributos !== 'object') {
+    return atributos;
+  }
+  
+  const processedAttributes = { ...atributos };
+  
+  // Función recursiva para buscar y convertir imágenes
+  const convertImages = (obj) => {
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        const value = obj[key];
+        
+        if (typeof value === 'string' && 
+            (value.includes('Uniformes_Imagenes') || value.includes('.png') || value.includes('.jpg') || value.includes('.jpeg'))) {
+          // Es una ruta de imagen, convertir a base64
+          const base64Image = convertImageToBase64(value);
+          if (base64Image) {
+            obj[key] = base64Image;
+          }
+        } else if (typeof value === 'object' && value !== null) {
+          // Buscar recursivamente en objetos anidados
+          if (value.preview && typeof value.preview === 'string') {
+            // Es un objeto de imagen con preview, convertir el preview
+            const base64Image = convertImageToBase64(value.preview);
+            if (base64Image) {
+              value.preview = base64Image;
+            }
+          }
+          convertImages(value);
+        }
+      }
+    }
+  };
+  
+  convertImages(processedAttributes);
+  return processedAttributes;
+};
+
 module.exports = {
   getOrdersByClientId,
   getOrderDetailsById,
   getProductsByOrderAndProcess,
+  convertImageToBase64,
+  processAttributesImages
 };
