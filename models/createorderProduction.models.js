@@ -11,23 +11,18 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
         // Start transaction
         await client.query('BEGIN');
         
-        // 1. Create or update client information
         const clientId = await createOrUpdateClient(client, clientData);
         
-        // 2. Add or update phone number
         await addClientPhone(client, clientId, clientData.telefono, 'Móvil');
         
-        // 3. Add client address
         const direccionId = await addClientAddress(client, clientId, clientData.direccion, clientData.idCiudad, clientData.idDepartamento);
         
-        // 4. Handle payment proof upload
         let comprobanteId = null;
         if (paymentInfo.tipoPago === 'contado' && paymentProofFile) {
             const uploadPath = await savePaymentProof(paymentProofFile);
             comprobanteId = await createPaymentProof(client, uploadPath);
         }
         
-        // 5. Create order
         const orderId = await createProductionOrder(
             client, 
             clientId, 
@@ -39,7 +34,6 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
             direccionId
         );
         
-        // 6. Create initial process record
         const initialProcessId = 1; // ID del proceso inicial
         const processResult = await client.query(
             `INSERT INTO detalle_proceso(
@@ -50,38 +44,54 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
         
         const processId = processResult.rows[0].id_detalle_proceso;
         
-        // 7. Add products to order with images
         const productDetails = [];
         for (let i = 0; i < products.length; i++) {
             const product = products[i];
             
-            // Buscar archivos de imágenes para este producto específico
             const productImageFiles = productFiles ? productFiles.filter(file => 
                 file.fieldname === `productImages_${i}` || 
                 file.fieldname === `productImages[${i}]`
             ) : [];
             
-            // Guardar imágenes del producto si existen
-            let productImageUrls = [];
-            if (productImageFiles.length > 0) {
-                productImageUrls = await saveProductImages(productImageFiles, product.idProducto, orderId);
-            }
-            
-            // Procesar atributos de usuario para extraer imágenes base64
             const { cleanedAttributes, extractedImages } = await processUserAttributesImages(
                 product.atributosUsuario, 
                 product.idProducto, 
                 orderId
             );
             
-            // Guardar imágenes extraídas de los atributos
-            let savedAttributeImages = [];
-            if (extractedImages.length > 0) {
-                savedAttributeImages = await saveAttributeImages(extractedImages, product.idProducto, orderId);
+            const allProductImages = [];
+            
+            if (productImageFiles.length > 0) {
+                for (let j = 0; j < productImageFiles.length; j++) {
+                    const file = productImageFiles[j];
+                    allProductImages.push({
+                        type: 'direct',
+                        file: file,
+                        index: j
+                    });
+                }
             }
             
-            // Actualizar atributos con URLs de las imágenes guardadas
-            const finalAttributes = updateAttributesWithImageUrls(cleanedAttributes, savedAttributeImages);
+            // // Agregar imágenes de atributos si existen
+            // if (extractedImages.length > 0) {
+            //     for (let k = 0; k < extractedImages.length; k++) {
+            //         const image = extractedImages[k];
+            //         allProductImages.push({
+            //             type: 'attribute',
+            //             image: image,
+            //             index: k
+            //         });
+            //     }
+            // }
+            
+            // Guardar todas las imágenes en una sola operación
+            let allImageUrls = [];
+            if (allProductImages.length > 0) {
+                allImageUrls = await saveAllProductImages(allProductImages, product.idProducto, orderId);
+            }
+            
+            // Combinar todas las URLs para url_producto (sin distinguir tipo)
+            const combinedImageUrls = allImageUrls.map(img => img.url);
             
             // Insertar el producto en detalle_producto_orden
             const detailId = await addProductToOrder(
@@ -89,10 +99,10 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 orderId,
                 product.idProducto,
                 product.cantidad,
-                finalAttributes,
+                cleanedAttributes, 
                 product.bordado,
                 product.observacion,
-                productImageUrls
+                combinedImageUrls 
             );
             
             // Insertar el proceso inicial en producto_proceso
@@ -114,34 +124,30 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 id_orden: orderId,
                 id_producto: product.idProducto,
                 cantidad: product.cantidad,
-                atributosusuario: finalAttributes,
+                atributosusuario: cleanedAttributes, 
                 bordado: product.bordado,
                 observacion: product.observacion,
-                url_producto: productImageUrls.join(','), // URLs de imágenes directas del producto
-                imagenes: productImageUrls, // Array de URLs de imágenes directas
-                imagenes_atributos: savedAttributeImages.map(img => img.savedPath), // URLs de imágenes de atributos
+                url_producto: combinedImageUrls.join(','), 
+                imagenes: combinedImageUrls, 
                 estado: 'En Producción',
                 nombre_producto: productResult.rows[0]?.nombre_producto || 'Producto sin nombre',
                 id_proceso_actual: initialProcessId
             });
         }
         
-        // 8. Get process name for the response
         const processNameResult = await client.query(
             'SELECT nombre FROM estado_proceso WHERE id_proceso = $1',
             [initialProcessId]
         );
         
-        // 9. Get client name
         const clientNameResult = await client.query(
             'SELECT nombre FROM cliente WHERE id_cliente = $1',
             [clientId]
         );
         
-        // Commit transaction
         await client.query('COMMIT');
         
-        // 10. Prepare the detailed response
+        // Prepare the detailed response
         return {
             success: true,
             data: {
@@ -186,50 +192,7 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
     }
 }
 
-async function saveProductImages(files, productId, orderId) {
-// Crear directorio en el escritorio para las imágenes de productos
-const desktopDir = require('os').homedir() + '/Desktop';
-const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'productos');
-
-// Ensure directory exists
-if (!fs.existsSync(uploadsDir)){
-    fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const savedImages = [];
-
-for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const timestamp = Date.now();
-    const filename = `producto_${productId}_orden_${orderId}_${timestamp}_${i}_${file.originalname}`;
-    const filepath = path.join(uploadsDir, filename);
-    
-    // Create a writable stream
-    const writeStream = fs.createWriteStream(filepath);
-    
-    await new Promise((resolve, reject) => {
-        writeStream.write(file.buffer);
-        writeStream.end();
-        
-        writeStream.on('finish', () => {
-            resolve();
-        });
-        
-        writeStream.on('error', (err) => {
-            reject(err);
-        });
-    });
-    
-    // Guardar ruta relativa para la base de datos
-    const relativePath = `Uniformes_Imagenes/productos/${filename}`;
-    savedImages.push(relativePath);
-}
-
-return savedImages;
-}
-
 async function addProductToOrder(client, orderId, productId, quantity, userAttributes, hasBrodery, observations, productImages) {
-    // Procesar las URLs de las imágenes (convertir array a string separado por comas)
     const imageUrls = Array.isArray(productImages) ? productImages.join(',') : productImages;
     
     const result = await client.query(
@@ -244,11 +207,9 @@ async function addProductToOrder(client, orderId, productId, quantity, userAttri
 }
 
 async function savePaymentProof(file) {
-    // Cambiar ruta al escritorio
     const desktopDir = require('os').homedir() + '/Desktop';
     const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'comprobantes');
     
-    // Ensure directory exists
     if (!fs.existsSync(uploadsDir)){
         fs.mkdirSync(uploadsDir, { recursive: true });
     }
@@ -257,7 +218,6 @@ async function savePaymentProof(file) {
     const filename = `comprobante_${timestamp}_${file.originalname}`;
     const filepath = path.join(uploadsDir, filename);
     
-    // Create a writable stream
     const writeStream = fs.createWriteStream(filepath);
     
     return new Promise((resolve, reject) => {
@@ -686,7 +646,7 @@ async function reactivateOrder(orderId) {
     }
 }
 
-// Función para procesar atributos de usuario y extraer imágenes base64
+// Función para procesar atributos de usuario y extraer imágenes base64 (sin reemplazarlas)
 async function processUserAttributesImages(userAttributes, productId, orderId) {
     if (!userAttributes || typeof userAttributes !== 'object') {
         return { cleanedAttributes: userAttributes, extractedImages: [] };
@@ -696,14 +656,14 @@ async function processUserAttributesImages(userAttributes, productId, orderId) {
     const extractedImages = [];
     
     // Función recursiva para buscar y extraer imágenes base64
-    function extractBase64Images(obj, path = '') {
+    function extractAndRemoveBase64Images(obj, path = '') {
         for (const key in obj) {
             if (obj.hasOwnProperty(key)) {
                 const value = obj[key];
                 const currentPath = path ? `${path}.${key}` : key;
                 
                 if (typeof value === 'string' && value.startsWith('data:image/')) {
-                    // Es una imagen base64, extraerla
+                    // Es una imagen base64, extraerla y remover del atributo
                     try {
                         const matches = value.match(/^data:image\/([a-zA-Z]*);base64,(.*)$/);
                         if (matches && matches.length === 3) {
@@ -724,34 +684,81 @@ async function processUserAttributesImages(userAttributes, productId, orderId) {
                                 originalValue: value
                             });
                             
-                            // Reemplazar la imagen base64 con un placeholder temporal
-                            obj[key] = `TEMP_IMAGE_${extractedImages.length - 1}`;
+                            // Remover la imagen base64 del atributo (dejar solo el nombre)
+                            if (key.toLowerCase().includes('imagen')) {
+                                // Si es un campo de imagen, conservar solo el nombre del archivo original
+                                const originalName = extractImageName(value);
+                                obj[key] = originalName || `imagen_${extractedImages.length}`;
+                            } else {
+                                // Si no es claramente un campo de imagen, eliminar completamente
+                                delete obj[key];
+                            }
                         }
                     } catch (error) {
                         console.error('Error al procesar imagen base64:', error);
                     }
                 } else if (typeof value === 'object' && value !== null) {
                     // Buscar recursivamente en objetos anidados
-                    extractBase64Images(value, currentPath);
+                    if (value.preview && typeof value.preview === 'string' && value.preview.startsWith('data:image/')) {
+                        // Es un objeto con preview base64, extraer la imagen y limpiar el objeto
+                        try {
+                            const matches = value.preview.match(/^data:image\/([a-zA-Z]*);base64,(.*)$/);
+                            if (matches && matches.length === 3) {
+                                const extension = matches[1];
+                                const base64Data = matches[2];
+                                
+                                const imageBuffer = Buffer.from(base64Data, 'base64');
+                                const timestamp = Date.now();
+                                const filename = `producto_${productId}_orden_${orderId}_attr_${timestamp}_${extractedImages.length}.${extension}`;
+                                
+                                extractedImages.push({
+                                    buffer: imageBuffer,
+                                    filename: filename,
+                                    path: `${currentPath}.preview`,
+                                    originalValue: value.preview
+                                });
+                                
+                                // Limpiar el objeto, mantener solo propiedades útiles
+                                obj[key] = {
+                                    name: value.name || `imagen_${extractedImages.length}`,
+                                    size: value.size,
+                                    type: value.type
+                                };
+                            }
+                        } catch (error) {
+                            console.error('Error al procesar preview base64:', error);
+                        }
+                    } else {
+                        // Continuar búsqueda recursiva
+                        extractAndRemoveBase64Images(value, currentPath);
+                    }
                 }
             }
         }
     }
     
-    extractBase64Images(cleanedAttributes);
+    extractAndRemoveBase64Images(cleanedAttributes);
     
     return { cleanedAttributes, extractedImages };
 }
 
+// Función auxiliar para extraer el nombre de archivo original
+function extractImageName(base64String) {
+    // Intentar extraer el nombre del archivo si está en algún formato conocido
+    // Por ahora, devolver null para que use el nombre generado
+    return null;
+}
+
 // Función para guardar imágenes extraídas de atributos
-async function saveAttributeImages(imageData, productId, orderId) {
-    if (!imageData || imageData.length === 0) {
+// Función unificada para guardar todas las imágenes de un producto (directas + atributos)
+async function saveAllProductImages(allImages, productId, orderId) {
+    if (!allImages || allImages.length === 0) {
         return [];
     }
 
-    // Crear directorio en el escritorio para las imágenes de atributos
+    // Crear directorio en el escritorio para las imágenes de productos
     const desktopDir = require('os').homedir() + '/Desktop';
-    const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'atributos');
+    const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'productos');
 
     // Ensure directory exists
     if (!fs.existsSync(uploadsDir)){
@@ -759,16 +766,32 @@ async function saveAttributeImages(imageData, productId, orderId) {
     }
 
     const savedImages = [];
+    const timestamp = Date.now();
 
-    for (let i = 0; i < imageData.length; i++) {
-        const image = imageData[i];
-        const filepath = path.join(uploadsDir, image.filename);
-        
-        // Create a writable stream
+    for (let i = 0; i < allImages.length; i++) {
+        const imageItem = allImages[i];
+        let filename, filepath, imageBuffer;
+
+        if (imageItem.type === 'direct') {
+            // Es una imagen directa (archivo)
+            const file = imageItem.file;
+            filename = `producto_${productId}_orden_${orderId}_${timestamp}_${i}_${file.originalname}`;
+            filepath = path.join(uploadsDir, filename);
+            imageBuffer = file.buffer;
+        } else if (imageItem.type === 'attribute') {
+            // Es una imagen de atributo (base64 convertida)
+            const image = imageItem.image;
+            const extension = image.filename.split('.').pop();
+            filename = `producto_${productId}_orden_${orderId}_attr_${timestamp}_${i}.${extension}`;
+            filepath = path.join(uploadsDir, filename);
+            imageBuffer = image.buffer;
+        }
+
+        // Guardar la imagen
         const writeStream = fs.createWriteStream(filepath);
         
         await new Promise((resolve, reject) => {
-            writeStream.write(image.buffer);
+            writeStream.write(imageBuffer);
             writeStream.end();
             
             writeStream.on('finish', () => {
@@ -781,55 +804,21 @@ async function saveAttributeImages(imageData, productId, orderId) {
         });
         
         // Guardar ruta relativa para la base de datos
-        const relativePath = `Uniformes_Imagenes/atributos/${image.filename}`;
+        const relativePath = `Uniformes_Imagenes/productos/${filename}`;
         savedImages.push({
-            ...image,
-            savedPath: relativePath
+            type: imageItem.type,
+            url: relativePath,
+            originalIndex: imageItem.index
         });
     }
 
     return savedImages;
 }
 
-// Función para actualizar atributos con URLs de imágenes guardadas
-function updateAttributesWithImageUrls(cleanedAttributes, savedImages) {
-    if (!savedImages || savedImages.length === 0) {
-        return cleanedAttributes;
-    }
-    
-    const updatedAttributes = { ...cleanedAttributes };
-    
-    // Función recursiva para reemplazar placeholders con URLs
-    function replacePlaceholders(obj) {
-        for (const key in obj) {
-            if (obj.hasOwnProperty(key)) {
-                const value = obj[key];
-                
-                if (typeof value === 'string' && value.startsWith('TEMP_IMAGE_')) {
-                    // Extraer el índice del placeholder
-                    const index = parseInt(value.replace('TEMP_IMAGE_', ''));
-                    if (savedImages[index]) {
-                        // Reemplazar con la URL guardada
-                        obj[key] = savedImages[index].savedPath;
-                    }
-                } else if (typeof value === 'object' && value !== null) {
-                    // Buscar recursivamente en objetos anidados
-                    replacePlaceholders(value);
-                }
-            }
-        }
-    }
-    
-    replacePlaceholders(updatedAttributes);
-    
-    return updatedAttributes;
-}
-
 module.exports = {
     createOrder,
     deleteProductFromOrder,
     deleteOrder,
-    saveProductImages,
     deactivateOrder,
     reactivateOrder
 };

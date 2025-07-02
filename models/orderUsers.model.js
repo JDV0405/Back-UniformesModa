@@ -294,8 +294,8 @@ const getOrderDetailsById = async (orderId) => {
         }
       }
       
-      // Procesar imágenes en atributos de usuario
-      productoConColor.atributosusuario = processAttributesImages(productoConColor.atributosusuario);
+      // NO procesar imágenes en atributos - mantener atributos como están
+      // (Las imágenes ahora se guardan solo en url_producto)
       
       // Procesamiento de color
       if (productoConColor.atributosusuario.color) {
@@ -532,8 +532,8 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
         }
       }
       
-      // Procesar imágenes en atributos de usuario
-      productoConColor.atributosusuario = processAttributesImages(productoConColor.atributosusuario);
+      // NO procesar imágenes en atributos - mantener atributos como están
+      // (Las imágenes ahora se guardan solo en url_producto)
       
       // Procesamiento de color
       if (productoConColor.atributosusuario.color) {
@@ -641,13 +641,9 @@ const convertImageToBase64 = (imagePath) => {
     // Determinar el tipo de imagen para construir la ruta correcta
     let fullPath = '';
     
-    // Si la ruta contiene "productos", es una imagen de producto
-    if (imagePath.includes('productos')) {
+    // Si la ruta contiene "productos" o "atributos", usar la carpeta productos (unificada)
+    if (imagePath.includes('productos') || imagePath.includes('atributos')) {
       fullPath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\productos', fileName);
-    }
-    // Si la ruta contiene "atributos", es una imagen de atributo
-    else if (imagePath.includes('atributos')) {
-      fullPath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\atributos', fileName);
     }
     // Si la ruta contiene "comprobantes", es un comprobante
     else if (imagePath.includes('comprobantes')) {
@@ -729,6 +725,5 @@ module.exports = {
   getOrdersByClientId,
   getOrderDetailsById,
   getProductsByOrderAndProcess,
-  convertImageToBase64,
-  processAttributesImages
+  convertImageToBase64
 };
