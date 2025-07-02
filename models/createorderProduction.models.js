@@ -67,13 +67,29 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 productImageUrls = await saveProductImages(productImageFiles, product.idProducto, orderId);
             }
             
+            // Procesar atributos de usuario para extraer imágenes base64
+            const { cleanedAttributes, extractedImages } = await processUserAttributesImages(
+                product.atributosUsuario, 
+                product.idProducto, 
+                orderId
+            );
+            
+            // Guardar imágenes extraídas de los atributos
+            let savedAttributeImages = [];
+            if (extractedImages.length > 0) {
+                savedAttributeImages = await saveAttributeImages(extractedImages, product.idProducto, orderId);
+            }
+            
+            // Actualizar atributos con URLs de las imágenes guardadas
+            const finalAttributes = updateAttributesWithImageUrls(cleanedAttributes, savedAttributeImages);
+            
             // Insertar el producto en detalle_producto_orden
             const detailId = await addProductToOrder(
                 client,
                 orderId,
                 product.idProducto,
                 product.cantidad,
-                product.atributosUsuario,
+                finalAttributes,
                 product.bordado,
                 product.observacion,
                 productImageUrls
@@ -98,11 +114,12 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 id_orden: orderId,
                 id_producto: product.idProducto,
                 cantidad: product.cantidad,
-                atributosusuario: product.atributosUsuario,
+                atributosusuario: finalAttributes,
                 bordado: product.bordado,
                 observacion: product.observacion,
-                url_producto: productImageUrls.join(','), // Unir URLs con comas
-                imagenes: productImageUrls, // Array de URLs de imágenes
+                url_producto: productImageUrls.join(','), // URLs de imágenes directas del producto
+                imagenes: productImageUrls, // Array de URLs de imágenes directas
+                imagenes_atributos: savedAttributeImages.map(img => img.savedPath), // URLs de imágenes de atributos
                 estado: 'En Producción',
                 nombre_producto: productResult.rows[0]?.nombre_producto || 'Producto sin nombre',
                 id_proceso_actual: initialProcessId
@@ -319,6 +336,7 @@ async function createOrUpdateClient(client, clientData) {
 }
 
 async function addClientPhone(client, clientId, phoneNumber, phoneType) {
+    // Check if phone exists
     const checkPhone = await client.query(
         'SELECT id_telefono FROM telefono_cliente WHERE id_cliente = $1 AND telefono = $2',
         [clientId, phoneNumber]
@@ -365,7 +383,7 @@ async function addClientAddress(client, clientId, address, cityId, departmentId)
     return addressResult.rows[0].id_direccion;
 }
 
-async function createProductionOrder(client, clientId, dueDate, paymentType, comprobanteId, observations, employeeId, direccionId) {
+async function createProductionOrder(client, clientId,dueDate, paymentType, comprobanteId, observations, employeeId, direccionId) {
     // Query con manejo condicional para id_comprobante_pago
     let query, params;
     
@@ -669,6 +687,144 @@ async function reactivateOrder(orderId) {
     }
 }
 
+// Función para procesar atributos de usuario y extraer imágenes base64
+async function processUserAttributesImages(userAttributes, productId, orderId) {
+    if (!userAttributes || typeof userAttributes !== 'object') {
+        return { cleanedAttributes: userAttributes, extractedImages: [] };
+    }
+    
+    const cleanedAttributes = { ...userAttributes };
+    const extractedImages = [];
+    
+    // Función recursiva para buscar y extraer imágenes base64
+    function extractBase64Images(obj, path = '') {
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                const value = obj[key];
+                const currentPath = path ? `${path}.${key}` : key;
+                
+                if (typeof value === 'string' && value.startsWith('data:image/')) {
+                    // Es una imagen base64, extraerla
+                    try {
+                        const matches = value.match(/^data:image\/([a-zA-Z]*);base64,(.*)$/);
+                        if (matches && matches.length === 3) {
+                            const extension = matches[1];
+                            const base64Data = matches[2];
+                            
+                            // Crear buffer desde base64
+                            const imageBuffer = Buffer.from(base64Data, 'base64');
+                            
+                            // Generar nombre de archivo único
+                            const timestamp = Date.now();
+                            const filename = `producto_${productId}_orden_${orderId}_attr_${timestamp}_${extractedImages.length}.${extension}`;
+                            
+                            extractedImages.push({
+                                buffer: imageBuffer,
+                                filename: filename,
+                                path: currentPath,
+                                originalValue: value
+                            });
+                            
+                            // Reemplazar la imagen base64 con un placeholder temporal
+                            obj[key] = `TEMP_IMAGE_${extractedImages.length - 1}`;
+                        }
+                    } catch (error) {
+                        console.error('Error al procesar imagen base64:', error);
+                    }
+                } else if (typeof value === 'object' && value !== null) {
+                    // Buscar recursivamente en objetos anidados
+                    extractBase64Images(value, currentPath);
+                }
+            }
+        }
+    }
+    
+    extractBase64Images(cleanedAttributes);
+    
+    return { cleanedAttributes, extractedImages };
+}
+
+// Función para guardar imágenes extraídas de atributos
+async function saveAttributeImages(imageData, productId, orderId) {
+    if (!imageData || imageData.length === 0) {
+        return [];
+    }
+
+    // Crear directorio en el escritorio para las imágenes de atributos
+    const desktopDir = require('os').homedir() + '/Desktop';
+    const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'atributos');
+
+    // Ensure directory exists
+    if (!fs.existsSync(uploadsDir)){
+        fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const savedImages = [];
+
+    for (let i = 0; i < imageData.length; i++) {
+        const image = imageData[i];
+        const filepath = path.join(uploadsDir, image.filename);
+        
+        // Create a writable stream
+        const writeStream = fs.createWriteStream(filepath);
+        
+        await new Promise((resolve, reject) => {
+            writeStream.write(image.buffer);
+            writeStream.end();
+            
+            writeStream.on('finish', () => {
+                resolve();
+            });
+            
+            writeStream.on('error', (err) => {
+                reject(err);
+            });
+        });
+        
+        // Guardar ruta relativa para la base de datos
+        const relativePath = `Uniformes_Imagenes/atributos/${image.filename}`;
+        savedImages.push({
+            ...image,
+            savedPath: relativePath
+        });
+    }
+
+    return savedImages;
+}
+
+// Función para actualizar atributos con URLs de imágenes guardadas
+function updateAttributesWithImageUrls(cleanedAttributes, savedImages) {
+    if (!savedImages || savedImages.length === 0) {
+        return cleanedAttributes;
+    }
+    
+    const updatedAttributes = { ...cleanedAttributes };
+    
+    // Función recursiva para reemplazar placeholders con URLs
+    function replacePlaceholders(obj) {
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                const value = obj[key];
+                
+                if (typeof value === 'string' && value.startsWith('TEMP_IMAGE_')) {
+                    // Extraer el índice del placeholder
+                    const index = parseInt(value.replace('TEMP_IMAGE_', ''));
+                    if (savedImages[index]) {
+                        // Reemplazar con la URL guardada
+                        obj[key] = savedImages[index].savedPath;
+                    }
+                } else if (typeof value === 'object' && value !== null) {
+                    // Buscar recursivamente en objetos anidados
+                    replacePlaceholders(value);
+                }
+            }
+        }
+    }
+    
+    replacePlaceholders(updatedAttributes);
+    
+    return updatedAttributes;
+}
 
 module.exports = {
     createOrder,
