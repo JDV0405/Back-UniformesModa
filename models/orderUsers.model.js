@@ -643,16 +643,16 @@ const convertImageToBase64 = (imagePath) => {
     
     // Si la ruta contiene "productos" o "atributos", usar la carpeta productos (unificada)
     if (imagePath.includes('productos') || imagePath.includes('atributos')) {
-      fullPath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\productos', fileName);
+      fullPath = path.join('C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\productos', fileName);
     }
     // Si la ruta contiene "comprobantes", es un comprobante
     else if (imagePath.includes('comprobantes')) {
-      fullPath = path.join('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
+      fullPath = path.join('C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\comprobantes', fileName);
     }
     // Si no se puede determinar, usar la ruta completa como alternativa
     else {
       const alternativePath = imagePath.replace(/\//g, '\\');
-      fullPath = `C:\\Users\\Asus\\Desktop\\${alternativePath}`;
+      fullPath = `C:\\Users\\user\\Desktop\\${alternativePath}`;
     }
     
     // Verificar si el archivo existe
@@ -664,7 +664,7 @@ const convertImageToBase64 = (imagePath) => {
     } else {
       // Intentar con la ruta alternativa
       const alternativePath = imagePath.replace(/\//g, '\\');
-      const fullAlternativePath = `C:\\Users\\Asus\\Desktop\\${alternativePath}`;
+      const fullAlternativePath = `C:\\Users\\user\\Desktop\\${alternativePath}`;
       
       if (fs.existsSync(fullAlternativePath)) {
         const imageBuffer = fs.readFileSync(fullAlternativePath);
