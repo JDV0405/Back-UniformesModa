@@ -3,7 +3,7 @@ const usuarioModel = require('../models/createUsers.model.js');
 
 const crearUsuario = async (req, res) => {
   const {
-    cedula, nombre, apellidos, activo = true, id_rol,
+    cedula, nombre, apellidos, activo = true, roles = [],
     telefono, emailUsuario, contrasena
   } = req.body;
 
@@ -18,7 +18,15 @@ const crearUsuario = async (req, res) => {
       return res.status(400).json({ mensaje: 'Correo ya está en uso' });
     }
 
-    await usuarioModel.crearEmpleado({ cedula, nombre, apellidos, activo, id_rol, telefono });
+    // Validar que se proporcionen roles
+    if (!roles || roles.length === 0) {
+      return res.status(400).json({ mensaje: 'Debe asignar al menos un rol al empleado' });
+    }
+
+    await usuarioModel.crearEmpleado({ cedula, nombre, apellidos, activo, telefono });
+
+    // Asignar roles al empleado
+    await usuarioModel.asignarRolesEmpleado({ cedula_empleado: cedula, roles });
 
     const hashedPassword = await bcrypt.hash(contrasena, 10);
 
@@ -44,7 +52,7 @@ const obtenerTodosLosUsuarios = async (req, res) => {
 const editarUsuario = async (req, res) => {
   const { cedula } = req.params;
   const {
-    nombre, apellidos, activo, id_rol, telefono, emailUsuario, contrasena
+    nombre, apellidos, activo, roles = [], telefono, emailUsuario, contrasena
   } = req.body;
 
   try {
@@ -59,15 +67,20 @@ const editarUsuario = async (req, res) => {
       return res.status(400).json({ mensaje: 'El correo ya está en uso por otro usuario' });
     }
 
+    // Validar que se proporcionen roles
+    if (!roles || roles.length === 0) {
+      return res.status(400).json({ mensaje: 'Debe asignar al menos un rol al empleado' });
+    }
+
     // Actualizar datos del usuario (incluyendo sincronización del campo activo)
     await usuarioModel.actualizarUsuario({
       cedula,
       nombre,
       apellidos,
       activo,
-      id_rol,
       telefono,
-      email: emailUsuario
+      email: emailUsuario,
+      roles
     });
 
     // Si se proporciona una nueva contraseña, actualizarla
@@ -83,8 +96,19 @@ const editarUsuario = async (req, res) => {
   }
 };
 
+const obtenerTodosLosRoles = async (req, res) => {
+  try {
+    const roles = await usuarioModel.obtenerTodosLosRoles();
+    res.status(200).json(roles);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ mensaje: 'Error al obtener roles' });
+  }
+};
+
 module.exports = {
   crearUsuario,
   obtenerTodosLosUsuarios,
+  obtenerTodosLosRoles,
   editarUsuario
 };

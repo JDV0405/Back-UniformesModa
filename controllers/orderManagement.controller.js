@@ -28,7 +28,12 @@ const UserController = {
       
       // Generar token JWT
       const token = jwt.sign(
-        { id: user.id_usuario, rol: user.id_rol, cedula: user.cedula },
+        { 
+          id: user.id_usuario, 
+          rol: user.id_rol, 
+          cedula: user.cedula,
+          roles: user.roles || [] 
+        },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES }
       );
@@ -46,7 +51,8 @@ const UserController = {
             rol: {
               id: user.id_rol,
               nombre: user.nombre_rol
-            }
+            },
+            roles: user.roles || []
           }
         }
       });
@@ -86,7 +92,8 @@ const UserController = {
             id: empleado.id_rol,
             nombre: empleado.nombre_rol,
             descripcion: empleado.descripcion
-          }
+          },
+          roles: empleado.roles || []
         }
       });
       
