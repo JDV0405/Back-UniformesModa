@@ -29,10 +29,13 @@ const usuarioController = require('../controllers/createUsers.controller.js');
  *                 type: string
  *               emailUsuario:
  *                 type: string
- *               id_rol:
- *                 type: string
+ *               roles:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: Array de IDs de roles a asignar al empleado
  *     responses:
- *       200:
+ *       201:
  *         description: Usuario creado exitosamente
  *       400:
  *         description: Error al crear el usuario
@@ -66,8 +69,6 @@ router.post('/usuarios', usuarioController.crearUsuario);
  *                     type: string
  *                   activo:
  *                     type: boolean
- *                   id_rol:
- *                     type: string
  *                   telefono:
  *                     type: string
  *                   email:
@@ -76,6 +77,17 @@ router.post('/usuarios', usuarioController.crearUsuario);
  *                     type: integer
  *                   usuario_activo:
  *                     type: boolean
+ *                   roles:
+ *                     type: array
+ *                     items:
+ *                       type: object
+ *                       properties:
+ *                         id_rol:
+ *                           type: integer
+ *                         nombre_rol:
+ *                           type: string
+ *                         descripcion:
+ *                           type: string
  *       500:
  *         description: Error interno del servidor
  */
@@ -116,8 +128,11 @@ router.get('/usuarios', usuarioController.obtenerTodosLosUsuarios);
  *                 description: Nueva contraseña (opcional)
  *               emailUsuario:
  *                 type: string
- *               id_rol:
- *                 type: string
+ *               roles:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: Array de IDs de roles a asignar al empleado
  *     responses:
  *       200:
  *         description: Usuario actualizado exitosamente
@@ -130,5 +145,35 @@ router.get('/usuarios', usuarioController.obtenerTodosLosUsuarios);
  */
 
 router.put('/usuarios/:cedula', usuarioController.editarUsuario);
+
+/**
+ * @swagger
+ * /api/roles:
+ *   get:
+ *     summary: Obtiene todos los roles disponibles
+ *     tags: [Usuarios]
+ *     responses:
+ *       200:
+ *         description: Lista de roles obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id_rol:
+ *                     type: integer
+ *                   nombre_rol:
+ *                     type: string
+ *                   descripcion:
+ *                     type: string
+ *                   activo:
+ *                     type: boolean
+ *       500:
+ *         description: Error interno del servidor
+ */
+
+router.get('/roles', usuarioController.obtenerTodosLosRoles);
 
 module.exports = router;

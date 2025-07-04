@@ -19,12 +19,12 @@ const authMiddleware = require('../middlewares/auth.middleware.js');
  *               email:
  *                 type: string
  *                 description: Correo electrónico del usuario
- *               contrasena:
+ *               password:
  *                 type: string
  *                 description: Contraseña del usuario
  *             required:
  *               - email
- *               - contrasena
+ *               - password
  *     responses:
  *       200:
  *         description: Autenticación exitosa
@@ -33,18 +33,47 @@ const authMiddleware = require('../middlewares/auth.middleware.js');
  *             schema:
  *               type: object
  *               properties:
- *                 token:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
  *                   type: string
- *                   description: JWT para autenticación
- *                 usuario:
+ *                   example: "Login exitoso"
+ *                 data:
  *                   type: object
  *                   properties:
- *                     id:
+ *                     token:
  *                       type: string
- *                     nombre:
- *                       type: string
- *                     rol:
- *                       type: string
+ *                       description: JWT para autenticación
+ *                     usuario:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         cedula:
+ *                           type: string
+ *                         nombre:
+ *                           type: string
+ *                         email:
+ *                           type: string
+ *                         rol:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: integer
+ *                             nombre:
+ *                               type: string
+ *                         roles:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               id_rol:
+ *                                 type: integer
+ *                               nombre_rol:
+ *                                 type: string
+ *                               descripcion:
+ *                                 type: string
  *       401:
  *         description: Credenciales inválidas
  *       500:
@@ -71,21 +100,40 @@ router.use(authMiddleware);
  *             schema:
  *               type: object
  *               properties:
- *                 id:
- *                   type: string
- *                 nombre:
- *                   type: string
- *                 apellidos:
- *                   type: string
- *                 email:
- *                   type: string
- *                 rol:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
  *                   type: object
  *                   properties:
- *                     id:
+ *                     cedula:
  *                       type: string
  *                     nombre:
  *                       type: string
+ *                     apellidos:
+ *                       type: string
+ *                     telefono:
+ *                       type: string
+ *                     rol:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         nombre:
+ *                           type: string
+ *                         descripcion:
+ *                           type: string
+ *                     roles:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id_rol:
+ *                             type: integer
+ *                           nombre_rol:
+ *                             type: string
+ *                           descripcion:
+ *                             type: string
  *       401:
  *         description: No autorizado - Token inválido o expirado
  *       500:

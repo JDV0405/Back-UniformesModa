@@ -6,12 +6,24 @@ const UserModel = {
     try {
       const query = `
         SELECT u.id_usuario, u.email, u.contrasena, u.activo, 
-              e.cedula, e.nombre, e.apellidos, e.activo as empleado_activo, 
-              r.id_rol, r.nombre_rol 
+              e.cedula, e.nombre, e.apellidos, e.activo as empleado_activo,
+              ARRAY_AGG(
+                CASE 
+                  WHEN r.id_rol IS NOT NULL THEN 
+                    JSON_BUILD_OBJECT(
+                      'id_rol', r.id_rol,
+                      'nombre_rol', r.nombre_rol,
+                      'descripcion', r.descripcion
+                    )
+                  ELSE NULL
+                END
+              ) FILTER (WHERE r.id_rol IS NOT NULL) as roles
         FROM usuario u
         JOIN empleado e ON u.cedula_empleado = e.cedula
-        JOIN rol r ON e.id_rol = r.id_rol
+        LEFT JOIN empleado_rol er ON e.cedula = er.cedula_empleado
+        LEFT JOIN rol r ON er.id_rol = r.id_rol
         WHERE u.email = $1 AND u.activo = true AND e.activo = true
+        GROUP BY u.id_usuario, u.email, u.contrasena, u.activo, e.cedula, e.nombre, e.apellidos, e.activo
       `;
       const result = await pool.query(query, [email]);
       
@@ -28,6 +40,14 @@ const UserModel = {
       }
       
       delete user.contrasena;
+      
+      // Para mantener compatibilidad con el código existente, 
+      // agregamos el primer rol como id_rol y nombre_rol
+      if (user.roles && user.roles.length > 0) {
+        user.id_rol = user.roles[0].id_rol;
+        user.nombre_rol = user.roles[0].nombre_rol;
+      }
+      
       return user;
       
     } catch (error) {
@@ -40,14 +60,41 @@ const UserModel = {
     try {
       const query = `
         SELECT e.cedula, e.nombre, e.apellidos, e.activo, e.telefono,
-              r.id_rol, r.nombre_rol, r.descripcion
+              ARRAY_AGG(
+                CASE 
+                  WHEN r.id_rol IS NOT NULL THEN 
+                    JSON_BUILD_OBJECT(
+                      'id_rol', r.id_rol,
+                      'nombre_rol', r.nombre_rol,
+                      'descripcion', r.descripcion
+                    )
+                  ELSE NULL
+                END
+              ) FILTER (WHERE r.id_rol IS NOT NULL) as roles
         FROM usuario u
         JOIN empleado e ON u.cedula_empleado = e.cedula
-        JOIN rol r ON e.id_rol = r.id_rol
+        LEFT JOIN empleado_rol er ON e.cedula = er.cedula_empleado
+        LEFT JOIN rol r ON er.id_rol = r.id_rol
         WHERE u.id_usuario = $1 AND u.activo = true
+        GROUP BY e.cedula, e.nombre, e.apellidos, e.activo, e.telefono
       `;
       const result = await pool.query(query, [userId]);
-      return result.rows[0];
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+      
+      const empleado = result.rows[0];
+      
+      // Para mantener compatibilidad con el código existente,
+      // agregamos el primer rol como id_rol y nombre_rol
+      if (empleado.roles && empleado.roles.length > 0) {
+        empleado.id_rol = empleado.roles[0].id_rol;
+        empleado.nombre_rol = empleado.roles[0].nombre_rol;
+        empleado.descripcion = empleado.roles[0].descripcion;
+      }
+      
+      return empleado;
     } catch (error) {
       throw new Error(`Error al obtener empleado: ${error.message}`);
     }
