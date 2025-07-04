@@ -672,7 +672,6 @@ class AdvanceOrderModel {
             dpo.id_producto, 
             dpo.cantidad as cantidad_total,
             dpo.atributosUsuario, 
-            dpo.bordado, 
             dpo.observacion,
             dpo.url_producto, 
             dpo.estado,
@@ -696,7 +695,7 @@ class AdvanceOrderModel {
         )
         SELECT 
           id_detalle, id_orden, id_producto, cantidad_total, cantidad_en_proceso as cantidad,
-          atributosUsuario, bordado, observacion, url_producto, estado,
+          atributosUsuario, observacion, url_producto, estado,
           nombre_producto, id_proceso_actual, nombre_proceso_actual,
           id_confeccionista, nombre_confeccionista, cedula_confeccionista, telefono_confeccionista,
           id_producto_proceso

@@ -58,6 +58,18 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 product.idProducto, 
                 orderId
             );
+
+            // Extraer y procesar el valor de bordado de los atributos
+            let hasBordado = false;
+            if (cleanedAttributes && typeof cleanedAttributes === 'object') {
+                const bordadoValue = cleanedAttributes.bordado || cleanedAttributes.Bordado;
+                if (bordadoValue) {
+                    hasBordado = bordadoValue === 'Si' || bordadoValue === 'si' || bordadoValue === true;
+                    // Eliminar bordado de los atributos para evitar duplicación
+                    delete cleanedAttributes.bordado;
+                    delete cleanedAttributes.Bordado;
+                }
+            }
             
             const allProductImages = [];
             
@@ -72,18 +84,6 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 }
             }
             
-            // // Agregar imágenes de atributos si existen
-            // if (extractedImages.length > 0) {
-            //     for (let k = 0; k < extractedImages.length; k++) {
-            //         const image = extractedImages[k];
-            //         allProductImages.push({
-            //             type: 'attribute',
-            //             image: image,
-            //             index: k
-            //         });
-            //     }
-            // }
-            
             // Guardar todas las imágenes en una sola operación
             let allImageUrls = [];
             if (allProductImages.length > 0) {
@@ -93,14 +93,13 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
             // Combinar todas las URLs para url_producto (sin distinguir tipo)
             const combinedImageUrls = allImageUrls.map(img => img.url);
             
-            // Insertar el producto en detalle_producto_orden
+            // Insertar el producto en detalle_producto_orden (sin columna bordado)
             const detailId = await addProductToOrder(
                 client,
                 orderId,
                 product.idProducto,
                 product.cantidad,
                 cleanedAttributes, 
-                product.bordado,
                 product.observacion,
                 combinedImageUrls 
             );
@@ -125,7 +124,7 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 id_producto: product.idProducto,
                 cantidad: product.cantidad,
                 atributosusuario: cleanedAttributes, 
-                bordado: product.bordado,
+                bordado: hasBordado, // Mantener en la respuesta para compatibilidad
                 observacion: product.observacion,
                 url_producto: combinedImageUrls.join(','), 
                 imagenes: combinedImageUrls, 
@@ -192,15 +191,15 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
     }
 }
 
-async function addProductToOrder(client, orderId, productId, quantity, userAttributes, hasBrodery, observations, productImages) {
+async function addProductToOrder(client, orderId, productId, quantity, userAttributes, observations, productImages) {
     const imageUrls = Array.isArray(productImages) ? productImages.join(',') : productImages;
     
     const result = await client.query(
         `INSERT INTO detalle_producto_orden(
             id_orden, id_producto, cantidad, atributosUsuario, 
-            bordado, observacion, url_producto
-        ) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING id_detalle`,
-        [orderId, productId, quantity, userAttributes, hasBrodery, observations, imageUrls]
+            observacion, url_producto
+        ) VALUES($1, $2, $3, $4, $5, $6) RETURNING id_detalle`,
+        [orderId, productId, quantity, userAttributes, observations, imageUrls]
     );
     
     return result.rows[0].id_detalle;
