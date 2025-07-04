@@ -218,23 +218,64 @@ class AdvanceOrderModel {
       datos.observaciones = nuevaObservacion;
     }
       // 1. Crear o obtener el detalle_proceso para el siguiente proceso
-      let idDetalleProcesoSiguiente;
-      const procesoSiguienteQuery = await db.query(
-        `SELECT id_detalle_proceso, observaciones FROM detalle_proceso 
-        WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'`,
-        [idOrden, idProcesoSiguiente]
-      );
+      // SOLO si no estamos usando bifurcación específica
+      let idDetalleProcesoSiguiente = null;
       
-      if (procesoSiguienteQuery.rows.length > 0) {
-        idDetalleProcesoSiguiente = procesoSiguienteQuery.rows[0].id_detalle_proceso;
+      if (idProcesoSiguiente !== null) {
+        const procesoSiguienteQuery = await db.query(
+          `SELECT id_detalle_proceso, observaciones FROM detalle_proceso 
+          WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'`,
+          [idOrden, idProcesoSiguiente]
+        );
         
-        // NUEVA LÓGICA: Si hay observaciones nuevas, concatenarlas con las existentes
-        if (observaciones && observaciones.trim() !== '') {
-          const observacionesExistentes = procesoSiguienteQuery.rows[0].observaciones;
-          let observacionesConcatenadas = '';
+        if (procesoSiguienteQuery.rows.length > 0) {
+          idDetalleProcesoSiguiente = procesoSiguienteQuery.rows[0].id_detalle_proceso;
           
-          if (observacionesExistentes && observacionesExistentes.trim() !== '') {
-            // Obtener timestamp actual para la nueva observación
+          // NUEVA LÓGICA: Si hay observaciones nuevas, concatenarlas con las existentes
+          if (observaciones && observaciones.trim() !== '') {
+            const observacionesExistentes = procesoSiguienteQuery.rows[0].observaciones;
+            let observacionesConcatenadas = '';
+            
+            if (observacionesExistentes && observacionesExistentes.trim() !== '') {
+              // Obtener timestamp actual para la nueva observación
+              const now = new Date();
+              const timestamp = now.toLocaleString('es-CO', { 
+                timeZone: 'America/Bogota',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              });
+              
+              observacionesConcatenadas = `${observacionesExistentes}\n\n[${timestamp}] ${observaciones}`;
+            } else {
+              // Si no hay observaciones previas, agregar timestamp a la nueva
+              const now = new Date();
+              const timestamp = now.toLocaleString('es-CO', { 
+                timeZone: 'America/Bogota',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              });
+              
+              observacionesConcatenadas = `[${timestamp}] ${observaciones}`;
+            }
+            
+            // Actualizar las observaciones concatenadas
+            await db.query(
+              `UPDATE detalle_proceso SET observaciones = $1 WHERE id_detalle_proceso = $2`,
+              [observacionesConcatenadas, idDetalleProcesoSiguiente]
+            );
+          }
+        } else {
+          // Si no existe el proceso, crear uno nuevo con timestamp en la observación
+          let observacionConTimestamp = '';
+          if (observaciones && observaciones.trim() !== '') {
             const now = new Date();
             const timestamp = now.toLocaleString('es-CO', { 
               timeZone: 'America/Bogota',
@@ -246,70 +287,33 @@ class AdvanceOrderModel {
               second: '2-digit'
             });
             
-            observacionesConcatenadas = `${observacionesExistentes}\n\n[${timestamp}] ${observaciones}`;
-          } else {
-            // Si no hay observaciones previas, agregar timestamp a la nueva
-            const now = new Date();
-            const timestamp = now.toLocaleString('es-CO', { 
-              timeZone: 'America/Bogota',
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit'
-            });
-            
-            observacionesConcatenadas = `[${timestamp}] ${observaciones}`;
+            observacionConTimestamp = `[${timestamp}] ${observaciones}`;
           }
           
-          // Actualizar las observaciones concatenadas
-          await db.query(
-            `UPDATE detalle_proceso SET observaciones = $1 WHERE id_detalle_proceso = $2`,
-            [observacionesConcatenadas, idDetalleProcesoSiguiente]
+          const nuevoProcesoQuery = await db.query(
+            `INSERT INTO detalle_proceso 
+            (id_orden, id_proceso, cedula_empleado, observaciones) 
+            VALUES ($1, $2, $3, $4) RETURNING id_detalle_proceso`,
+            [idOrden, idProcesoSiguiente, cedulaEmpleadoActual, observacionConTimestamp]
           );
+          idDetalleProcesoSiguiente = nuevoProcesoQuery.rows[0].id_detalle_proceso;
         }
-      } else {
-        // Si no existe el proceso, crear uno nuevo con timestamp en la observación
-        let observacionConTimestamp = '';
-        if (observaciones && observaciones.trim() !== '') {
-          const now = new Date();
-          const timestamp = now.toLocaleString('es-CO', { 
-            timeZone: 'America/Bogota',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-          });
-          
-          observacionConTimestamp = `[${timestamp}] ${observaciones}`;
-        }
-        
-        const nuevoProcesoQuery = await db.query(
-          `INSERT INTO detalle_proceso 
-          (id_orden, id_proceso, cedula_empleado, observaciones) 
-          VALUES ($1, $2, $3, $4) RETURNING id_detalle_proceso`,
-          [idOrden, idProcesoSiguiente, cedulaEmpleadoActual, observacionConTimestamp]
-        );
-        idDetalleProcesoSiguiente = nuevoProcesoQuery.rows[0].id_detalle_proceso;
       }
       
       // Verificar si estamos pasando de cortes a confección
       const isCorteToConfeccion = parseInt(idProcesoActual) === 3 && parseInt(idProcesoSiguiente) === 4;
       
-      // NUEVA LÓGICA: Verificar si estamos saliendo de confección
+      //Verificar si estamos saliendo de confección
       const isLeavingConfeccion = parseInt(idProcesoActual) === 4;
       
       // 2. Procesar cada producto con lógica de múltiples destinos
       for (const item of itemsToAdvance) {
         const { idDetalle, cantidadAvanzar, idConfeccionista, idProductoProceso, fechaRecibido, fechaEntrega } = item;
         
-        // NUEVA LÓGICA: Determinar el destino específico para este producto
         let destinoProceso = idProcesoSiguiente;
         let idDetalleProcesoDestino = idDetalleProcesoSiguiente;
         
+        // Si estamos usando bifurcación, obtener el destino específico
         if (isLeavingConfeccion && destinosPorProducto[idDetalle]) {
           destinoProceso = destinosPorProducto[idDetalle].idProcesoDestino;
           
@@ -332,6 +336,9 @@ class AdvanceOrderModel {
             );
             idDetalleProcesoDestino = nuevoProcesoDestinoQuery.rows[0].id_detalle_proceso;
           }
+        } else if (idProcesoSiguiente === null) {
+          // Si no hay proceso siguiente definido y no hay bifurcación, es un error
+          throw new Error(`No se puede determinar el destino para el producto ${idDetalle}`);
         }
         
         // NUEVA LÓGICA: Si viene de confección (proceso 4) y tiene idProductoProceso específico
@@ -400,7 +407,6 @@ class AdvanceOrderModel {
             );
           }
         } else {
-          // LÓGICA ORIGINAL para otros procesos
           // Obtener la cantidad actual en el proceso actual
           let cantidadActualQuery;
           
@@ -569,6 +575,9 @@ class AdvanceOrderModel {
           [idOrden, idProcesoActual]
         );
       }
+      
+      // Limpiar procesos vacíos que puedan haber quedado
+      await this.cleanEmptyProcesses(idOrden);
       
       await db.query('COMMIT');
       return true;
@@ -1017,7 +1026,6 @@ class AdvanceOrderModel {
 
   // Verificar si estamos saliendo de confección y necesitamos elegir destino
   isLeavingConfeccion(idProcesoActual) {
-    // Asumiendo que confección es el proceso ID 4
     return parseInt(idProcesoActual) === 4;
   }
 
@@ -1035,6 +1043,27 @@ class AdvanceOrderModel {
       return result.rows;
     } catch (error) {
       throw new Error(`Error al obtener procesos disponibles: ${error.message}`);
+    }
+  }
+
+  // Función para limpiar procesos vacíos (sin productos)
+  async cleanEmptyProcesses(idOrden) {
+    try {
+      const query = `
+        DELETE FROM detalle_proceso 
+        WHERE id_orden = $1 
+        AND estado = 'En Proceso'
+        AND id_detalle_proceso NOT IN (
+          SELECT DISTINCT id_detalle_proceso 
+          FROM producto_proceso 
+          WHERE id_detalle_proceso IS NOT NULL
+        )
+      `;
+      
+      const result = await db.query(query, [idOrden]);
+      return result.rowCount; 
+    } catch (error) {
+      throw new Error(`Error al limpiar procesos vacíos: ${error.message}`);
     }
   }
 

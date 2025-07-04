@@ -611,4 +611,44 @@ router.get('/procesos-disponibles-confeccion', advanceOrderController.getAvailab
  */
 router.post('/avanzar-desde-confeccion', advanceOrderController.advanceProductsFromConfeccion);
 
+/**
+ * @swagger
+ * /api/advance/limpiar-procesos-vacios/{idOrden}:
+ *   delete:
+ *     summary: Limpia procesos vacíos de una orden
+ *     description: Elimina registros de detalle_proceso que no tienen productos asociados
+ *     tags: [Seguimiento de Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idOrden
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la orden a limpiar
+ *     responses:
+ *       200:
+ *         description: Procesos vacíos eliminados exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     processesDeleted:
+ *                       type: integer
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Error de validación
+ *       500:
+ *         description: Error interno del servidor
+ */
+router.delete('/limpiar-procesos-vacios/:idOrden', advanceOrderController.cleanEmptyProcesses);
+
 module.exports = router;

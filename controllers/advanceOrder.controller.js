@@ -402,11 +402,11 @@ class AdvanceOrderController {
         };
       }
       
-      // Usar idProcesoSiguiente como 5 por defecto, pero se sobrescribirá con los destinos específicos
+      // No usar proceso por defecto cuando hay bifurcación para evitar registros vacíos
       await AdvanceOrderModel.advanceProductsToNextProcess({
         idOrden, 
         idProcesoActual, 
-        idProcesoSiguiente: 5, // Valor por defecto, se sobrescribe con destinosPorProducto
+        idProcesoSiguiente: null, // null indica que se usarán solo los destinos específicos
         cedulaEmpleadoActual,
         itemsToAdvance,
         observaciones,
@@ -421,6 +421,33 @@ class AdvanceOrderController {
       return res.status(500).json({
         success: false,
         message: `Error al avanzar productos desde confección: ${error.message}`
+      });
+    }
+  }
+
+  // Limpiar procesos vacíos de una orden
+  async cleanEmptyProcesses(req, res) {
+    try {
+      const { idOrden } = req.params;
+      
+      if (!idOrden) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Se requiere el ID de la orden' 
+        });
+      }
+      
+      const processesDeleted = await AdvanceOrderModel.cleanEmptyProcesses(idOrden);
+      
+      return res.status(200).json({
+        success: true,
+        data: { processesDeleted },
+        message: `Se eliminaron ${processesDeleted} procesos vacíos`
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al limpiar procesos vacíos: ${error.message}`
       });
     }
   }
