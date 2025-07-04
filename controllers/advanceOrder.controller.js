@@ -316,6 +316,114 @@ class AdvanceOrderController {
       });
     }
   }
+
+  // Obtener procesos disponibles desde confección
+  async getAvailableProcessesFromConfeccion(req, res) {
+    try {
+      const procesos = await AdvanceOrderModel.getAvailableProcessesFromConfeccion();
+      return res.status(200).json({
+        success: true,
+        data: procesos,
+        message: 'Procesos disponibles obtenidos correctamente'
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al obtener procesos disponibles: ${error.message}`
+      });
+    }
+  }
+
+  // Avanzar productos desde confección con bifurcación
+  async advanceProductsFromConfeccion(req, res) {
+    try {
+      const { 
+        idOrden, 
+        idProcesoActual, 
+        cedulaEmpleadoActual,
+        itemsToAdvance,
+        observaciones 
+      } = req.body;
+      
+      // Validaciones
+      if (!idOrden || !idProcesoActual || !cedulaEmpleadoActual || !itemsToAdvance || !itemsToAdvance.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'Faltan datos requeridos. Se necesita ID de orden, proceso actual, cédula del empleado y productos a avanzar'
+        });
+      }
+      
+      // Validar que estemos saliendo de confección
+      if (parseInt(idProcesoActual) !== 4) {
+        return res.status(400).json({
+          success: false,
+          message: 'Este endpoint solo puede ser usado cuando el proceso actual es confección (ID 4)'
+        });
+      }
+      
+      // Preparar mapeo de destinos por producto
+      const destinosPorProducto = {};
+      
+      // Validar estructura de productos con destinos
+      for (const item of itemsToAdvance) {
+        if (!item.idDetalle || !item.cantidadAvanzar || item.cantidadAvanzar <= 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'Cada producto debe tener un ID de detalle válido y una cantidad a avanzar mayor a 0'
+          });
+        }
+        
+        if (!item.idProductoProceso) {
+          return res.status(400).json({
+            success: false,
+            message: 'Se debe especificar idProductoProceso cuando se avanza desde confección'
+          });
+        }
+        
+        if (!item.idProcesoDestino) {
+          return res.status(400).json({
+            success: false,
+            message: 'Se debe especificar el proceso de destino para cada producto'
+          });
+        }
+        
+        // Validar que el proceso de destino sea válido (5=Bordado, 6=Facturación)
+        if (![5, 6].includes(parseInt(item.idProcesoDestino))) {
+          return res.status(400).json({
+            success: false,
+            message: 'El proceso de destino debe ser Bordado (5) o Facturación (6)'
+          });
+        }
+        
+        // Mapear destinos por producto
+        destinosPorProducto[item.idDetalle] = {
+          idProcesoDestino: item.idProcesoDestino,
+          nombreProceso: item.idProcesoDestino === 5 ? 'Bordado' : 'Facturación'
+        };
+      }
+      
+      // Usar idProcesoSiguiente como 5 por defecto, pero se sobrescribirá con los destinos específicos
+      await AdvanceOrderModel.advanceProductsToNextProcess({
+        idOrden, 
+        idProcesoActual, 
+        idProcesoSiguiente: 5, // Valor por defecto, se sobrescribe con destinosPorProducto
+        cedulaEmpleadoActual,
+        itemsToAdvance,
+        observaciones,
+        destinosPorProducto
+      });
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Productos avanzados exitosamente desde confección con bifurcación'
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al avanzar productos desde confección: ${error.message}`
+      });
+    }
+  }
 }
 
 

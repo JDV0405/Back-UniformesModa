@@ -502,4 +502,113 @@ router.get('/ordenes-completadas/:idOrden', advanceOrderController.getCompletedO
 // Obtener confeccionistas activos
 router.get('/confeccionistas', advanceOrderController.getActiveConfeccionistas);
 
+/**
+ * @swagger
+ * /api/advance/procesos-disponibles-confeccion:
+ *   get:
+ *     summary: Obtiene los procesos disponibles desde confección
+ *     description: Retorna la lista de procesos a los que se puede avanzar desde confección (Bordado y Facturación)
+ *     tags: [Seguimiento de Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de procesos disponibles
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id_proceso:
+ *                         type: integer
+ *                       nombre:
+ *                         type: string
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Error interno del servidor
+ */
+router.get('/procesos-disponibles-confeccion', advanceOrderController.getAvailableProcessesFromConfeccion);
+
+/**
+ * @swagger
+ * /api/advance/avanzar-desde-confeccion:
+ *   post:
+ *     summary: Avanza productos desde confección con bifurcación
+ *     description: Permite avanzar productos desde confección hacia bordado o facturación según se especifique para cada producto
+ *     tags: [Seguimiento de Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idOrden
+ *               - idProcesoActual
+ *               - cedulaEmpleadoActual
+ *               - itemsToAdvance
+ *             properties:
+ *               idOrden:
+ *                 type: integer
+ *                 description: ID de la orden
+ *               idProcesoActual:
+ *                 type: integer
+ *                 description: ID del proceso actual (debe ser 4 para confección)
+ *               cedulaEmpleadoActual:
+ *                 type: string
+ *                 description: Cédula del empleado que está realizando el avance
+ *               itemsToAdvance:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - idDetalle
+ *                     - cantidadAvanzar
+ *                     - idProductoProceso
+ *                     - idProcesoDestino
+ *                   properties:
+ *                     idDetalle:
+ *                       type: integer
+ *                       description: ID del detalle del producto
+ *                     cantidadAvanzar:
+ *                       type: integer
+ *                       description: Cantidad a avanzar
+ *                     idProductoProceso:
+ *                       type: integer
+ *                       description: ID específico del producto proceso en confección
+ *                     idProcesoDestino:
+ *                       type: integer
+ *                       description: ID del proceso de destino (5=Bordado, 6=Facturación)
+ *               observaciones:
+ *                 type: string
+ *                 description: Observaciones adicionales del avance
+ *     responses:
+ *       200:
+ *         description: Productos avanzados exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Error de validación
+ *       500:
+ *         description: Error interno del servidor
+ */
+router.post('/avanzar-desde-confeccion', advanceOrderController.advanceProductsFromConfeccion);
+
 module.exports = router;
