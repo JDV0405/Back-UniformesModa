@@ -278,6 +278,22 @@ const getOrderDetailsById = async (orderId) => {
         productoConColor.atributosusuario = {};
       }
       
+      // Extraer el valor de bordado de atributosusuario
+      let bordado = false;
+      if (productoConColor.atributosusuario && typeof productoConColor.atributosusuario === 'object') {
+        const bordadoValue = productoConColor.atributosusuario.bordado || productoConColor.atributosusuario.Bordado;
+        if (bordadoValue) {
+          bordado = bordadoValue === 'Si' || bordadoValue === 'si' || bordadoValue === true;
+        }
+        
+        // Limpiar los atributos eliminando el campo bordado para evitar duplicación
+        delete productoConColor.atributosusuario.bordado;
+        delete productoConColor.atributosusuario.Bordado;
+      }
+      
+      // Agregar el campo bordado como propiedad separada
+      productoConColor.bordado = bordado;
+      
       // Procesamiento de confeccionista
       if (productoConColor.confeccionista_info) {
         productoConColor.confeccionista = productoConColor.confeccionista_info;
@@ -449,7 +465,7 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
       `WITH producto_procesos AS (
         SELECT 
           dpo.id_detalle, dpo.id_orden, dpo.id_producto, dpo.cantidad as cantidad_total,
-          dpo.atributosUsuario, dpo.bordado, dpo.observacion,
+          dpo.atributosUsuario, dpo.observacion,
           dpo.url_producto, dpo.estado,
           p.nombre_producto,
           JSONB_BUILD_OBJECT(
@@ -478,7 +494,7 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
       SELECT 
         id_detalle, id_orden, id_producto, cantidad_total, 
         cantidad_en_proceso as cantidad,
-        atributosUsuario, bordado, observacion, url_producto, estado,
+        atributosUsuario, observacion, url_producto, estado,
         nombre_producto, categoria, id_proceso_actual, nombre_proceso_actual,
         fecha_inicio_proceso, fecha_final_proceso, estado_proceso,
         empleado_proceso_nombre, empleado_proceso_apellidos
@@ -523,6 +539,22 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
       if (!productoConColor.atributosusuario) {
         productoConColor.atributosusuario = {};
       }
+      
+      // Extraer el valor de bordado de atributosusuario
+      let bordado = false;
+      if (productoConColor.atributosusuario && typeof productoConColor.atributosusuario === 'object') {
+        const bordadoValue = productoConColor.atributosusuario.bordado || productoConColor.atributosusuario.Bordado;
+        if (bordadoValue) {
+          bordado = bordadoValue === 'Si' || bordadoValue === 'si' || bordadoValue === true;
+        }
+        
+        // Limpiar los atributos eliminando el campo bordado para evitar duplicación
+        delete productoConColor.atributosusuario.bordado;
+        delete productoConColor.atributosusuario.Bordado;
+      }
+      
+      // Agregar el campo bordado como propiedad separada
+      productoConColor.bordado = bordado;
       
       // Convertir url_producto a base64
       if (productoConColor.url_producto) {
