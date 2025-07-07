@@ -170,57 +170,6 @@ const getEmployeesByRoleKeywords = async (keywords) => {
   }
 };
 
-// Función para debugging - verificar datos en la base de datos
-const debugDatabaseData = async () => {
-  try {
-    console.log('=== DEBUGGING DATABASE DATA ===');
-    
-    // Verificar empleados
-    const empleados = await pool.query('SELECT COUNT(*) as count FROM empleado WHERE activo = true');
-    console.log(`Empleados activos: ${empleados.rows[0].count}`);
-    
-    // Verificar roles
-    const roles = await pool.query('SELECT COUNT(*) as count FROM rol WHERE activo = true');
-    console.log(`Roles activos: ${roles.rows[0].count}`);
-    
-    // Verificar empleado_rol
-    const empleadoRol = await pool.query('SELECT COUNT(*) as count FROM empleado_rol');
-    console.log(`Relaciones empleado-rol: ${empleadoRol.rows[0].count}`);
-    
-    // Mostrar algunos empleados
-    const sampleEmpleados = await pool.query(`
-      SELECT e.cedula, e.nombre, e.apellidos 
-      FROM empleado e 
-      WHERE e.activo = true 
-      LIMIT 5
-    `);
-    console.log('Empleados de muestra:', sampleEmpleados.rows);
-    
-    // Mostrar algunos roles
-    const sampleRoles = await pool.query(`
-      SELECT r.id_rol, r.nombre_rol 
-      FROM rol r 
-      WHERE r.activo = true 
-      LIMIT 5
-    `);
-    console.log('Roles de muestra:', sampleRoles.rows);
-    
-    // Mostrar relaciones
-    const sampleRelations = await pool.query(`
-      SELECT e.nombre, e.apellidos, r.nombre_rol
-      FROM empleado e
-      JOIN empleado_rol er ON e.cedula = er.cedula_empleado
-      JOIN rol r ON er.id_rol = r.id_rol
-      WHERE e.activo = true AND r.activo = true
-      LIMIT 5
-    `);
-    console.log('Relaciones de muestra:', sampleRelations.rows);
-    
-    console.log('=== END DEBUGGING ===');
-  } catch (error) {
-    console.error('Error in debugging:', error);
-  }
-};
 
 module.exports = {
   getProductsByCategory,
@@ -230,6 +179,5 @@ module.exports = {
   getAssesorEmployee,
   getEmployeesByRoleIds,
   getAllActiveEmployees,
-  getEmployeesByRoleKeywords,
-  debugDatabaseData
+  getEmployeesByRoleKeywords
 };
