@@ -103,6 +103,12 @@ class AdvanceOrderController {
  //Avanza productos al siguiente proceso (MODIFICADO)
   async advanceProducts(req, res) {
   try {
+    if (req.body.itemsToAdvance && Array.isArray(req.body.itemsToAdvance)) {
+      req.body.itemsToAdvance.forEach((item, index) => {
+        console.log(`- Item ${index}:`, JSON.stringify(item, null, 2));
+      });
+    }
+    
     const { 
       idOrden, 
       idProcesoActual, 
