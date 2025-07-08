@@ -112,80 +112,65 @@ router.get('/orden/:idOrden/proceso/:idProceso', advanceOrderController.getProdu
 
 /**
  * @swagger
- * /api/advance/avanzar:
+ * /api/produccion/avanzar:
  *   post:
  *     summary: Avanza productos al siguiente proceso
- *     description: Mueve los productos seleccionados al siguiente proceso en la cadena de producción
+ *     description: Mueve productos de un proceso a otro. Para facturación->entrega requiere archivo de factura.
  *     tags: [Seguimiento de Órdenes]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
- *             properties:
- *               idOrden:
- *                 type: integer
- *                 description: ID de la orden
- *                 example: 123
- *               idProcesoActual:
- *                 type: integer
- *                 description: ID del proceso actual
- *                 example: 3
- *               idProcesoSiguiente:
- *                 type: integer
- *                 description: ID del proceso siguiente
- *                 example: 4
- *               cedulaEmpleadoActual:
- *                 type: string
- *                 description: Cédula del empleado responsable
- *                 example: "12345678"
- *               itemsToAdvance:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     idDetalle:
- *                       type: integer
- *                       description: ID del detalle del producto
- *                       example: 42
- *                     cantidadAvanzar:
- *                       type: integer
- *                       description: Cantidad a avanzar
- *                       example: 10
- *                     idConfeccionista:
- *                       type: integer
- *                       description: ID del confeccionista (requerido para transición cortes->confección)
- *                       example: 5
- *                     fechaRecibido:
- *                       type: string
- *                       format: date-time
- *                       description: Fecha cuando el confeccionista recibe el trabajo (requerido para confeccionistas)
- *                       example: "2025-06-15T08:00:00Z"
- *                     fechaEntrega:
- *                       type: string
- *                       format: date-time
- *                       description: Fecha estimada de entrega del confeccionista (requerido para confeccionistas)
- *                       example: "2025-06-20T18:00:00Z"
- *                     idProductoProceso:
- *                       type: integer
- *                       description: ID específico del producto_proceso (requerido cuando se avanza desde confección)
- *                       example: 78
- *               observaciones:
- *                 type: string
- *                 description: Notas adicionales sobre el avance
- *                 example: "Material premium, revisar calidad"
  *             required:
  *               - idOrden
  *               - idProcesoActual
  *               - idProcesoSiguiente
  *               - cedulaEmpleadoActual
  *               - itemsToAdvance
+ *             properties:
+ *               idOrden:
+ *                 type: integer
+ *                 description: ID de la orden
+ *                 example: 1
+ *               idProcesoActual:
+ *                 type: integer
+ *                 description: ID del proceso actual
+ *                 example: 6
+ *               idProcesoSiguiente:
+ *                 type: integer
+ *                 description: ID del proceso siguiente
+ *                 example: 7
+ *               cedulaEmpleadoActual:
+ *                 type: string
+ *                 description: Cédula del empleado responsable
+ *                 example: "1025643962"
+ *               itemsToAdvance:
+ *                 type: string
+ *                 description: JSON string con array de productos a avanzar
+ *                 example: '[{"idDetalle":1,"cantidadAvanzar":1,"idProductoProceso":12}]'
+ *               observaciones:
+ *                 type: string
+ *                 description: Observaciones del proceso
+ *                 example: "Proceso completado sin novedades"
+ *               numero_factura:
+ *                 type: string
+ *                 description: Número de factura (requerido para facturación->entrega)
+ *                 example: "FAC-20250708-1444"
+ *               observaciones_factura:
+ *                 type: string
+ *                 description: Observaciones de la factura
+ *                 example: "Factura procesada correctamente"
+ *               factura_file:
+ *                 type: string
+ *                 format: binary
+ *                 description: Archivo de factura (requerido para facturación->entrega)
  *     responses:
  *       200:
- *         description: Productos avanzados correctamente
+ *         description: Productos avanzados exitosamente
  *         content:
  *           application/json:
  *             schema:
@@ -197,8 +182,20 @@ router.get('/orden/:idOrden/proceso/:idProceso', advanceOrderController.getProdu
  *                 message:
  *                   type: string
  *                   example: "Productos avanzados exitosamente al siguiente proceso"
+ *                 facturaCreada:
+ *                   type: object
+ *                   properties:
+ *                     numero_factura:
+ *                       type: string
+ *                       example: "FAC-20250708-1444"
+ *                     url_factura:
+ *                       type: string
+ *                       example: "http://localhost:3000/uploads/facturas/factura-1641234567-123456789.pdf"
+ *                     observaciones:
+ *                       type: string
+ *                       example: "Factura procesada correctamente"
  *       400:
- *         description: Error en los datos enviados
+ *         description: Datos inválidos o archivo faltante
  *         content:
  *           application/json:
  *             schema:
@@ -210,9 +207,25 @@ router.get('/orden/:idOrden/proceso/:idProceso', advanceOrderController.getProdu
  *                 message:
  *                   type: string
  *                   examples:
- *                     fechasFaltantes: "Se debe especificar fecha de recibido y fecha de entrega cuando se asigna trabajo a un confeccionista"
- *                     fechasInvalidas: "La fecha de entrega debe ser posterior a la fecha de recibido"
- *                     confeccionistaFaltante: "Se debe asignar un confeccionista cuando se pasa del proceso de cortes a confección"
+ *                     archivo_requerido:
+ *                       value: "Para pasar de facturación a entrega se requiere adjuntar el archivo de factura"
+ *                     numero_requerido:
+ *                       value: "Para pasar de facturación a entrega se requiere el número de factura"
+ *                     archivo_invalido:
+ *                       value: "Tipo de archivo no permitido. Solo se permiten: PDF, JPG, JPEG, PNG, DOC, DOCX"
+ *       409:
+ *         description: Conflicto (factura duplicada)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Ya existe una factura con el número FAC-20250708-1444"
  *       500:
  *         description: Error del servidor
  */
@@ -650,5 +663,66 @@ router.post('/avanzar-desde-confeccion', advanceOrderController.advanceProductsF
  *         description: Error interno del servidor
  */
 router.delete('/limpiar-procesos-vacios/:idOrden', advanceOrderController.cleanEmptyProcesses);
+
+/**
+ * @swagger
+ * /api/advance/orden/{idOrden}/facturas:
+ *   get:
+ *     summary: Obtiene las facturas de una orden específica
+ *     description: Retorna todas las facturas generadas para una orden específica
+ *     tags: [Facturas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idOrden
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la orden
+ *     responses:
+ *       200:
+ *         description: Lista de facturas de la orden
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id_factura:
+ *                         type: integer
+ *                         example: 1
+ *                       numero_factura:
+ *                         type: string
+ *                         example: "FAC-2025-001"
+ *                       fecha_emision:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2025-07-08T10:30:00Z"
+ *                       url_factura:
+ *                         type: string
+ *                         example: "https://example.com/facturas/FAC-2025-001.pdf"
+ *                       observaciones:
+ *                         type: string
+ *                         example: "Factura con descuento corporativo"
+ *                       total_productos_facturados:
+ *                         type: integer
+ *                         example: 5
+ *                 message:
+ *                   type: string
+ *                   example: "Facturas de la orden obtenidas correctamente"
+ *       404:
+ *         description: Orden no encontrada
+ *       500:
+ *         description: Error del servidor
+ */
+router.get('/orden/:idOrden/facturas', advanceOrderController.getOrderFacturas);
 
 module.exports = router;

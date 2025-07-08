@@ -1,4 +1,40 @@
 const AdvanceOrderModel = require('../models/advanceOrder.models');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Configuración de multer para archivos de factura
+const facturaStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = 'C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\facturas';
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const extension = path.extname(file.originalname);
+    cb(null, `factura-${uniqueSuffix}${extension}`);
+  }
+});
+
+const uploadFactura = multer({
+  storage: facturaStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+    
+    if (allowedTypes.includes(fileExtension)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de archivo no permitido. Solo se permiten: PDF, JPG, JPEG, PNG, DOC, DOCX'));
+    }
+  }
+});
 
 class AdvanceOrderController {
   async getOrderProducts(req, res) {
@@ -75,6 +111,7 @@ class AdvanceOrderController {
       });
     }
   }
+
   // Obtener productos con todos sus confeccionistas asignados
   async getProductsWithAllConfeccionistas(req, res) {
     try {
@@ -100,106 +137,161 @@ class AdvanceOrderController {
       });
     }
   }
+
  //Avanza productos al siguiente proceso (MODIFICADO)
   async advanceProducts(req, res) {
-  try {
-    if (req.body.itemsToAdvance && Array.isArray(req.body.itemsToAdvance)) {
-      req.body.itemsToAdvance.forEach((item, index) => {
-        console.log(`- Item ${index}:`, JSON.stringify(item, null, 2));
-      });
-    }
+    // Configurar multer para este endpoint específico
+    const upload = uploadFactura.single('factura_file');
     
-    const { 
-      idOrden, 
-      idProcesoActual, 
-      idProcesoSiguiente, 
-      cedulaEmpleadoActual,
-      itemsToAdvance,
-      observaciones 
-    } = req.body;
-    
-    // Validaciones
-    if (!idOrden || !idProcesoActual || !idProcesoSiguiente || !cedulaEmpleadoActual || !itemsToAdvance || !itemsToAdvance.length) {
-      return res.status(400).json({
-        success: false,
-        message: 'Faltan datos requeridos. Se necesita ID de orden, proceso actual, proceso siguiente, cédula del empleado y productos a avanzar'
-      });
-    }
-    
-    // Validar que los procesos sean diferentes
-    if (parseInt(idProcesoActual) === parseInt(idProcesoSiguiente)) {
-      return res.status(400).json({
-        success: false,
-        message: 'El proceso actual y el siguiente no pueden ser iguales'
-      });
-    }
-    
-    // Validar estructura de productos
-    for (const item of itemsToAdvance) {
-      if (!item.idDetalle || !item.cantidadAvanzar || item.cantidadAvanzar <= 0) {
+    upload(req, res, async (err) => {
+      if (err) {
         return res.status(400).json({
           success: false,
-          message: 'Cada producto debe tener un ID de detalle válido y una cantidad a avanzar mayor a 0'
+          message: `Error al subir archivo: ${err.message}`
         });
       }
       
-      // Validar que si es transición de cortes a confección (proceso 3 a 4), se incluya confeccionista y fechas
-      if (parseInt(idProcesoActual) === 3 && parseInt(idProcesoSiguiente) === 4) {
-        if (!item.idConfeccionista) {
+      try {
+        
+        // Validar que req.body existe
+        if (!req.body || typeof req.body !== 'object') {
           return res.status(400).json({
             success: false,
-            message: 'Se debe asignar un confeccionista cuando se pasa del proceso de cortes a confección'
+            message: 'El cuerpo de la petición está vacío o no es válido'
           });
         }
         
-        // Validar fechas requeridas para confeccionista
-        if (!item.fechaRecibido || !item.fechaEntrega) {
+        // Extraer datos del body
+        const { 
+          idOrden, 
+          idProcesoActual, 
+          idProcesoSiguiente, 
+          cedulaEmpleadoActual,
+          itemsToAdvance,
+          observaciones,
+          numero_factura,
+          observaciones_factura
+        } = req.body;
+        
+        // Parsear itemsToAdvance si viene como string
+        let parsedItemsToAdvance;
+        try {
+          parsedItemsToAdvance = typeof itemsToAdvance === 'string' ? JSON.parse(itemsToAdvance) : itemsToAdvance;
+        } catch (parseError) {
           return res.status(400).json({
             success: false,
-            message: 'Se debe especificar fecha de recibido y fecha de entrega cuando se asigna trabajo a un confeccionista'
+            message: 'Error al parsear itemsToAdvance: debe ser un array válido'
           });
         }
         
-        // Validar que la fecha de entrega sea posterior a la de recibido
-        const fechaRecibido = new Date(item.fechaRecibido);
-        const fechaEntrega = new Date(item.fechaEntrega);
-        
-        if (fechaEntrega <= fechaRecibido) {
+        // Validar que itemsToAdvance existe y es un array
+        if (!parsedItemsToAdvance || !Array.isArray(parsedItemsToAdvance)) {
           return res.status(400).json({
             success: false,
-            message: 'La fecha de entrega debe ser posterior a la fecha de recibido'
+            message: 'itemsToAdvance debe ser un array válido'
           });
         }
-      }
-      
-      // Validar que si viene de confección (proceso 4), se incluya idProductoProceso para identificar cuál grupo específico
-      if (parseInt(idProcesoActual) === 4 && !item.idProductoProceso) {
-        return res.status(400).json({
+        
+        // Validaciones básicas
+        if (!idOrden || !idProcesoActual || !idProcesoSiguiente || !cedulaEmpleadoActual || !parsedItemsToAdvance.length) {
+          return res.status(400).json({
+            success: false,
+            message: 'Faltan datos obligatorios: idOrden, idProcesoActual, idProcesoSiguiente, cedulaEmpleadoActual, itemsToAdvance'
+          });
+        }
+        
+        // Validar que los procesos sean diferentes
+        if (parseInt(idProcesoActual) === parseInt(idProcesoSiguiente)) {
+          return res.status(400).json({
+            success: false,
+            message: 'El proceso actual y el siguiente no pueden ser iguales'
+          });
+        }
+        
+        // Validar estructura de productos
+        for (const item of parsedItemsToAdvance) {
+          if (!item.idDetalle || !item.cantidadAvanzar) {
+            return res.status(400).json({
+              success: false,
+              message: 'Cada producto debe tener idDetalle y cantidadAvanzar'
+            });
+          }
+          
+          if (parseInt(item.cantidadAvanzar) <= 0) {
+            return res.status(400).json({
+              success: false,
+              message: 'La cantidad a avanzar debe ser mayor que 0'
+            });
+          }
+        }
+        
+        // Validar datos de factura para transición facturación -> entrega
+        let facturaData = null;
+        if (parseInt(idProcesoActual) === 6 && parseInt(idProcesoSiguiente) === 7) {
+          if (!numero_factura) {
+            return res.status(400).json({
+              success: false,
+              message: 'Para pasar de facturación a entrega se requiere el número de factura'
+            });
+          }
+          
+          if (!req.file) {
+            return res.status(400).json({
+              success: false,
+              message: 'Para pasar de facturación a entrega se requiere adjuntar el archivo de factura'
+            });
+          }
+          
+          // Crear la URL del archivo
+          const baseUrl = `${req.protocol}://${req.get('host')}`;
+          const facturaUrl = `${baseUrl}/facturas/${req.file.filename}`;
+          
+          facturaData = {
+            numero_factura,
+            url_factura: facturaUrl,
+            observaciones: observaciones_factura || null
+          };
+        }
+        
+        await AdvanceOrderModel.advanceProductsToNextProcess({
+          idOrden, 
+          idProcesoActual, 
+          idProcesoSiguiente, 
+          cedulaEmpleadoActual,
+          itemsToAdvance: parsedItemsToAdvance,
+          observaciones,
+          facturaData
+        });
+        
+        return res.status(200).json({
+          success: true,
+          message: 'Productos avanzados exitosamente al siguiente proceso',
+          ...(facturaData && { facturaCreada: facturaData })
+        });
+      } catch (error) {
+        // Si hay error y se subió un archivo, eliminarlo
+        if (req.file) {
+          try {
+            fs.unlinkSync(req.file.path);
+          } catch (unlinkError) {
+            console.error('Error al eliminar archivo:', unlinkError);
+          }
+        }
+        
+        // Manejar errores específicos de validación
+        if (error.message.includes('Ya existe una factura con el número')) {
+          return res.status(409).json({
+            success: false,
+            message: error.message
+          });
+        }
+        
+        return res.status(500).json({
           success: false,
-          message: 'Se debe especificar idProductoProceso cuando se avanza desde confección para identificar el grupo específico'
+          message: `Error al avanzar productos: ${error.message}`
         });
       }
-    }
-    
-    await AdvanceOrderModel.advanceProductsToNextProcess({
-      idOrden, 
-      idProcesoActual, 
-      idProcesoSiguiente, 
-      cedulaEmpleadoActual,
-      itemsToAdvance,
-      observaciones
     });
-    
-    return res.status(200).json({
-      success: true,
-      message: 'Productos avanzados exitosamente al siguiente proceso'
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: `Error al avanzar productos: ${error.message}`
-    });
-  }
   }
   
   async getOrderDetail(req, res) {
@@ -279,7 +371,6 @@ class AdvanceOrderController {
       });
     }
   }
-  
   // Obtener el detalle de una orden completada
   async getCompletedOrderDetail(req, res) {
     try {
@@ -454,6 +545,32 @@ class AdvanceOrderController {
       return res.status(500).json({
         success: false,
         message: `Error al limpiar procesos vacíos: ${error.message}`
+      });
+    }
+  }
+
+  // Obtener facturas de una orden específica
+  async getOrderFacturas(req, res) {
+    try {
+      const { idOrden } = req.params;
+      
+      if (!idOrden) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Se requiere el ID de la orden' 
+        });
+      }
+      
+      const facturas = await AdvanceOrderModel.getOrderFacturas(idOrden);
+      return res.status(200).json({
+        success: true,
+        data: facturas,
+        message: 'Facturas de la orden obtenidas correctamente'
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al obtener facturas de la orden: ${error.message}`
       });
     }
   }

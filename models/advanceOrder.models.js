@@ -183,7 +183,9 @@ class AdvanceOrderModel {
       itemsToAdvance, 
       observaciones,
       // NUEVO: Permitir especificar destino para cada producto cuando viene de confección
-      destinosPorProducto = {} 
+      destinosPorProducto = {},
+      // NUEVO: Datos de factura para transición de facturación a entrega
+      facturaData = null
     } = datos;
     
     try {
@@ -318,6 +320,31 @@ class AdvanceOrderModel {
       //Verificar si estamos saliendo de confección
       const isLeavingConfeccion = idProcesoActualInt === 4;
       
+      // Verificar si estamos pasando de facturación a entrega
+      const isFacturacionToEntrega = idProcesoActualInt === 6 && idProcesoSiguienteInt === 7;
+      
+      // Si es transición de facturación a entrega y se proporcionan datos de factura
+      let idFacturaCreada = null;
+      if (isFacturacionToEntrega && facturaData) {
+        // Verificar que el número de factura no exista
+        const existeFacturaQuery = await db.query(
+          `SELECT id_factura FROM factura WHERE numero_factura = $1`,
+          [facturaData.numero_factura]
+        );
+        
+        if (existeFacturaQuery.rows.length > 0) {
+          throw new Error(`Ya existe una factura con el número: ${facturaData.numero_factura}`);
+        }
+        
+        // Crear la factura
+        const facturaQuery = await db.query(
+          `INSERT INTO factura (numero_factura, url_factura, observaciones) 
+           VALUES ($1, $2, $3) RETURNING id_factura`,
+          [facturaData.numero_factura, facturaData.url_factura, facturaData.observaciones]
+        );
+        idFacturaCreada = facturaQuery.rows[0].id_factura;
+      }
+      
       // 2. Procesar cada producto con lógica de múltiples destinos
       for (const item of itemsToAdvance) {
         
@@ -436,6 +463,15 @@ class AdvanceOrderModel {
             await db.query(
               `UPDATE producto_proceso SET cantidad = $1 WHERE id_producto_proceso = $2`,
               [nuevaCantidadProcesoActual, idProductoProcesoInt]
+            );
+          }
+          
+          // Si es transición de facturación a entrega, vincular con factura
+          if (isFacturacionToEntrega && idFacturaCreada) {
+            await db.query(
+              `INSERT INTO factura_producto_proceso (id_factura, id_producto_proceso)
+               VALUES ($1, $2)`,
+              [idFacturaCreada, idProductoProcesoInt]
             );
           }
         } else {          
@@ -1129,6 +1165,33 @@ class AdvanceOrderModel {
       return result.rowCount; 
     } catch (error) {
       throw new Error(`Error al limpiar procesos vacíos: ${error.message}`);
+    }
+  }
+
+  // Obtener facturas de una orden específica
+  async getOrderFacturas(idOrden) {
+    try {
+      const query = `
+        SELECT DISTINCT
+          f.id_factura,
+          f.numero_factura,
+          f.fecha_emision,
+          f.url_factura,
+          f.observaciones,
+          COUNT(fpp.id_producto_proceso) as total_productos_facturados
+        FROM factura f
+        JOIN factura_producto_proceso fpp ON f.id_factura = fpp.id_factura
+        JOIN producto_proceso pp ON fpp.id_producto_proceso = pp.id_producto_proceso
+        JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+        WHERE dp.id_orden = $1
+        GROUP BY f.id_factura, f.numero_factura, f.fecha_emision, f.url_factura, f.observaciones
+        ORDER BY f.fecha_emision DESC
+      `;
+      
+      const result = await db.query(query, [idOrden]);
+      return result.rows;
+    } catch (error) {
+      throw new Error(`Error al obtener facturas de la orden: ${error.message}`);
     }
   }
 
