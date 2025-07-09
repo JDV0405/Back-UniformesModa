@@ -6,7 +6,7 @@ const fs = require('fs');
 // Configuración de multer para archivos de factura
 const facturaStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = 'C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\facturas';
+    const uploadPath = 'C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\facturas';
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
