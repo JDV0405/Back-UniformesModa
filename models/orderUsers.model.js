@@ -480,7 +480,8 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
           dp.fecha_final_proceso,
           dp.estado as estado_proceso,
           e.nombre as empleado_proceso_nombre,
-          e.apellidos as empleado_proceso_apellidos
+          e.apellidos as empleado_proceso_apellidos,
+          pp.id_producto_proceso
         FROM detalle_producto_orden dpo
         JOIN producto p ON dpo.id_producto = p.id_producto
         JOIN categoria c ON p.id_categoria = c.id_categoria
@@ -492,16 +493,32 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
         WHERE dpo.id_orden = $1
       )
       SELECT 
-        id_detalle, id_orden, id_producto, cantidad_total, 
-        cantidad_en_proceso as cantidad,
-        atributosUsuario, observacion, url_producto, estado,
-        nombre_producto, categoria, id_proceso_actual, nombre_proceso_actual,
-        fecha_inicio_proceso, fecha_final_proceso, estado_proceso,
-        empleado_proceso_nombre, empleado_proceso_apellidos
-      FROM producto_procesos
-      WHERE id_proceso_actual = $2 
-        AND (cantidad_en_proceso > 0 OR (cantidad_en_proceso = 0 AND id_proceso_actual = 1))
-      ORDER BY id_detalle, id_proceso_actual`,
+        pp.id_detalle, pp.id_orden, pp.id_producto, pp.cantidad_total, 
+        pp.cantidad_en_proceso as cantidad,
+        pp.atributosUsuario, pp.observacion, pp.url_producto, pp.estado,
+        pp.nombre_producto, pp.categoria, pp.id_proceso_actual, pp.nombre_proceso_actual,
+        pp.fecha_inicio_proceso, pp.fecha_final_proceso, pp.estado_proceso,
+        pp.empleado_proceso_nombre, pp.empleado_proceso_apellidos,
+        pp.id_producto_proceso,
+        -- NUEVA INFORMACIÓN DE FACTURAS
+        (
+          SELECT json_agg(
+            json_build_object(
+              'id_factura', f.id_factura,
+              'numero_factura', f.numero_factura,
+              'fecha_emision', f.fecha_emision,
+              'url_factura', f.url_factura,
+              'observaciones', f.observaciones
+            )
+          )
+          FROM factura_producto_proceso fpp
+          JOIN factura f ON fpp.id_factura = f.id_factura
+          WHERE fpp.id_producto_proceso = pp.id_producto_proceso
+        ) as facturas_asociadas
+      FROM producto_procesos pp
+      WHERE pp.id_proceso_actual = $2 
+        AND (pp.cantidad_en_proceso > 0 OR (pp.cantidad_en_proceso = 0 AND pp.id_proceso_actual = 1))
+      ORDER BY pp.id_detalle, pp.id_proceso_actual`,
       [orderId, processId]
     );
 

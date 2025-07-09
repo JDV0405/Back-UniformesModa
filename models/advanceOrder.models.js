@@ -430,6 +430,8 @@ class AdvanceOrderModel {
             [idDetalleInt, idDetalleProcesoDestino]
           );
           
+          let idProductoProcesoDestino = null;
+          
           if (existeEnSiguienteQuery.rows.length > 0) {
             const cantidadExistente = parseInt(existeEnSiguienteQuery.rows[0].cantidad);
             const nuevaCantidad = cantidadExistente + cantidadAvanzarInt;
@@ -440,12 +442,25 @@ class AdvanceOrderModel {
               WHERE id_detalle_producto = $2 AND id_detalle_proceso = $3`,
               [nuevaCantidad, idDetalleInt, idDetalleProcesoDestino]
             );
+            
+            idProductoProcesoDestino = existeEnSiguienteQuery.rows[0].id_producto_proceso;
           } else {
-            await db.query(
+            const insertResult = await db.query(
               `INSERT INTO producto_proceso 
               (id_detalle_producto, id_detalle_proceso, cantidad) 
-              VALUES ($1, $2, $3)`,
+              VALUES ($1, $2, $3) RETURNING id_producto_proceso`,
               [idDetalleInt, idDetalleProcesoDestino, cantidadAvanzarInt]
+            );
+            
+            idProductoProcesoDestino = insertResult.rows[0].id_producto_proceso;
+          }
+          
+          // Si es transición de facturación a entrega, vincular con factura
+          if (isFacturacionToEntrega && idFacturaCreada && idProductoProcesoDestino) {
+            await db.query(
+              `INSERT INTO factura_producto_proceso (id_factura, id_producto_proceso)
+               VALUES ($1, $2)`,
+              [idFacturaCreada, idProductoProcesoDestino]
             );
           }
           
@@ -523,6 +538,8 @@ class AdvanceOrderModel {
               [idDetalleInt, idDetalleProcesoDestino, idConfeccionistaInt]
             );
             
+            let idProductoProcesoDestino = null;
+            
             if (existeConConfeccionistaQuery.rows.length > 0) {
               const cantidadExistente = parseInt(existeConConfeccionistaQuery.rows[0].cantidad);
               const nuevaCantidad = cantidadExistente + cantidadAvanzarInt;
@@ -535,12 +552,25 @@ class AdvanceOrderModel {
                 AND id_confeccionista = $6`,
                 [nuevaCantidad, fechaRecibidoDate, fechaEntregaDate, idDetalleInt, idDetalleProcesoDestino, idConfeccionistaInt]
               );
+              
+              idProductoProcesoDestino = existeConConfeccionistaQuery.rows[0].id_producto_proceso;
             } else {
-              await db.query(
+              const insertResult = await db.query(
                 `INSERT INTO producto_proceso 
                 (id_detalle_producto, id_detalle_proceso, cantidad, id_confeccionista, fecha_recibido, fecha_entrega) 
-                VALUES ($1, $2, $3, $4, $5, $6)`,
+                VALUES ($1, $2, $3, $4, $5, $6) RETURNING id_producto_proceso`,
                 [idDetalleInt, idDetalleProcesoDestino, cantidadAvanzarInt, idConfeccionistaInt, fechaRecibidoDate, fechaEntregaDate]
+              );
+              
+              idProductoProcesoDestino = insertResult.rows[0].id_producto_proceso;
+            }
+            
+            // Si es transición de facturación a entrega, vincular con factura
+            if (isFacturacionToEntrega && idFacturaCreada && idProductoProcesoDestino) {
+              await db.query(
+                `INSERT INTO factura_producto_proceso (id_factura, id_producto_proceso)
+                 VALUES ($1, $2)`,
+                [idFacturaCreada, idProductoProcesoDestino]
               );
             }
             
@@ -566,6 +596,8 @@ class AdvanceOrderModel {
               [idDetalleInt, idDetalleProcesoDestino]
             );
             
+            let idProductoProcesoDestino = null;
+            
             if (existeEnSiguienteQuery.rows.length > 0) {
               const cantidadExistente = parseInt(existeEnSiguienteQuery.rows[0].cantidad);
               const nuevaCantidad = cantidadExistente + cantidadAvanzarInt;
@@ -576,12 +608,25 @@ class AdvanceOrderModel {
                 WHERE id_detalle_producto = $2 AND id_detalle_proceso = $3`,
                 [nuevaCantidad, idDetalleInt, idDetalleProcesoDestino]
               );
+              
+              idProductoProcesoDestino = existeEnSiguienteQuery.rows[0].id_producto_proceso;
             } else {
-              await db.query(
+              const insertResult = await db.query(
                 `INSERT INTO producto_proceso 
                 (id_detalle_producto, id_detalle_proceso, cantidad) 
-                VALUES ($1, $2, $3)`,
+                VALUES ($1, $2, $3) RETURNING id_producto_proceso`,
                 [idDetalleInt, idDetalleProcesoDestino, cantidadAvanzarInt]
+              );
+              
+              idProductoProcesoDestino = insertResult.rows[0].id_producto_proceso;
+            }
+            
+            // Si es transición de facturación a entrega, vincular con factura
+            if (isFacturacionToEntrega && idFacturaCreada && idProductoProcesoDestino) {
+              await db.query(
+                `INSERT INTO factura_producto_proceso (id_factura, id_producto_proceso)
+                 VALUES ($1, $2)`,
+                [idFacturaCreada, idProductoProcesoDestino]
               );
             }
           }
