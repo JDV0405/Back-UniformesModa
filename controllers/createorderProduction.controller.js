@@ -120,7 +120,6 @@ async function createOrder(req, res) {
                 idProducto: product.id,
                 cantidad: product.quantity,
                 atributosUsuario: product.fields || {},
-                bordado: false,
                 observacion: product.observaciones || '',
                 urlProducto: null
             }));

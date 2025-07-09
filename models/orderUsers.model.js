@@ -296,7 +296,7 @@ const getOrderDetailsById = async (orderId) => {
         productoConColor.atributosusuario = {};
       }
       
-      // Extraer el valor de bordado de atributosusuario
+      // Extraer el valor de bordado de atributosusuario para compatibilidad
       let bordado = false;
       if (productoConColor.atributosusuario && typeof productoConColor.atributosusuario === 'object') {
         const bordadoValue = productoConColor.atributosusuario.bordado || productoConColor.atributosusuario.Bordado;
@@ -304,12 +304,15 @@ const getOrderDetailsById = async (orderId) => {
           bordado = bordadoValue === 'Si' || bordadoValue === 'si' || bordadoValue === true;
         }
         
-        // Limpiar los atributos eliminando el campo bordado para evitar duplicación
-        delete productoConColor.atributosusuario.bordado;
-        delete productoConColor.atributosusuario.Bordado;
+        // MANTENER bordado en atributosusuario - NO eliminar
+        // Solo normalizar el nombre si hay inconsistencias
+        if (productoConColor.atributosusuario.Bordado && !productoConColor.atributosusuario.bordado) {
+          productoConColor.atributosusuario.bordado = productoConColor.atributosusuario.Bordado;
+          delete productoConColor.atributosusuario.Bordado;
+        }
       }
       
-      // Agregar el campo bordado como propiedad separada
+      // Agregar el campo bordado como propiedad separada para compatibilidad
       productoConColor.bordado = bordado;
       
       // Procesamiento de confeccionista
@@ -575,7 +578,7 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
         productoConColor.atributosusuario = {};
       }
       
-      // Extraer el valor de bordado de atributosusuario
+      // Extraer el valor de bordado de atributosusuario para compatibilidad
       let bordado = false;
       if (productoConColor.atributosusuario && typeof productoConColor.atributosusuario === 'object') {
         const bordadoValue = productoConColor.atributosusuario.bordado || productoConColor.atributosusuario.Bordado;
@@ -583,12 +586,15 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
           bordado = bordadoValue === 'Si' || bordadoValue === 'si' || bordadoValue === true;
         }
         
-        // Limpiar los atributos eliminando el campo bordado para evitar duplicación
-        delete productoConColor.atributosusuario.bordado;
-        delete productoConColor.atributosusuario.Bordado;
+        // MANTENER bordado en atributosusuario - NO eliminar
+        // Solo normalizar el nombre si hay inconsistencias
+        if (productoConColor.atributosusuario.Bordado && !productoConColor.atributosusuario.bordado) {
+          productoConColor.atributosusuario.bordado = productoConColor.atributosusuario.Bordado;
+          delete productoConColor.atributosusuario.Bordado;
+        }
       }
       
-      // Agregar el campo bordado como propiedad separada
+      // Agregar el campo bordado como propiedad separada para compatibilidad
       productoConColor.bordado = bordado;
       
       // Convertir url_producto a base64
