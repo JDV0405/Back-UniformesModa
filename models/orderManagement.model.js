@@ -177,8 +177,7 @@ const OrderModel = {
           dpo.cantidad,
           dpo.estado,
           dpo.observacion,
-          dpo.bordado,
-          dpo.atributosUsuario,
+          dpo.atributosusuario,
           dpo.url_producto,
           c.nombre_categoria,
           c.id_categoria,
@@ -479,12 +478,6 @@ const OrderModel = {
               updateProductFields.push(`atributosusuario = $${productParamCounter++}`);
               updateProductValues.push(producto.atributosusuario);
             }
-            
-            if (producto.bordado !== undefined) {
-              updateProductFields.push(`bordado = $${productParamCounter++}`);
-              updateProductValues.push(producto.bordado);
-            }
-            
             if (producto.observacion !== undefined) {
               updateProductFields.push(`observacion = $${productParamCounter++}`);
               updateProductValues.push(producto.observacion);
@@ -511,14 +504,13 @@ const OrderModel = {
             // Producto nuevo - insertar
             await client.query(
               `INSERT INTO detalle_producto_orden 
-              (id_orden, id_producto, cantidad, atributosusuario, bordado, observacion, url_producto, estado) 
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+              (id_orden, id_producto, cantidad, atributosusuario, observacion, url_producto, estado) 
+              VALUES ($1, $2, $3, $4, $5, $6, $7)`,
               [
                 idOrden,
                 producto.id_producto,
                 producto.cantidad || 1,
                 producto.atributosusuario || {},
-                producto.bordado || false,
                 producto.observacion || '',
                 producto.url_producto || null,
                 'En Producción'
