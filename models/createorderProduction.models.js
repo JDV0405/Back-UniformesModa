@@ -59,16 +59,14 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 orderId
             );
 
-            // Extraer y procesar el valor de bordado de los atributos
+            // El bordado se mantiene dentro de los atributos de usuario, no se extrae como campo separado
             let hasBordado = false;
             if (cleanedAttributes && typeof cleanedAttributes === 'object') {
                 const bordadoValue = cleanedAttributes.bordado || cleanedAttributes.Bordado;
                 if (bordadoValue) {
                     hasBordado = bordadoValue === 'Si' || bordadoValue === 'si' || bordadoValue === true;
-                    // Eliminar bordado de los atributos para evitar duplicación
-                    delete cleanedAttributes.bordado;
-                    delete cleanedAttributes.Bordado;
                 }
+                // NO eliminar bordado de los atributos - debe permanecer en atributosUsuario
             }
             
             const allProductImages = [];
