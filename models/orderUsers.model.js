@@ -118,6 +118,7 @@ const getOrderDetailsById = async (orderId) => {
     }
     
     // MODIFICADO: Obtener productos con información del proceso actual y confeccionista
+        // MODIFICADO: Obtener productos con información del proceso actual, confeccionista Y FACTURAS
     const productsQuery = await pool.query(
       `SELECT 
         dpo.*, 
@@ -149,7 +150,7 @@ const getOrderDetailsById = async (orderId) => {
             LIMIT 1
           ), 'Sin proceso asignado'
         ) AS nombre_proceso_actual,
-        -- MODIFICADO: Información del confeccionista asignado con nombre del producto
+        -- Información del confeccionista asignado con nombre del producto
         (
           SELECT json_build_object(
             'id_confeccionista', conf.id_confeccionista,
@@ -169,7 +170,24 @@ const getOrderDetailsById = async (orderId) => {
           WHERE pp.id_detalle_producto = dpo.id_detalle
           ORDER BY dp.fecha_inicio_proceso DESC
           LIMIT 1
-        ) AS confeccionista_info
+        ) AS confeccionista_info,
+        -- NUEVA INFORMACIÓN DE FACTURAS ASOCIADAS AL PRODUCTO
+        (
+          SELECT json_agg(
+            json_build_object(
+              'id_factura', f.id_factura,
+              'numero_factura', f.numero_factura,
+              'fecha_emision', f.fecha_emision,
+              'url_factura', f.url_factura,
+              'observaciones', f.observaciones,
+              'id_producto_proceso', pp.id_producto_proceso
+            )
+          )
+          FROM producto_proceso pp
+          JOIN factura_producto_proceso fpp ON pp.id_producto_proceso = fpp.id_producto_proceso
+          JOIN factura f ON fpp.id_factura = f.id_factura
+          WHERE pp.id_detalle_producto = dpo.id_detalle
+        ) AS facturas_asociadas
       FROM detalle_producto_orden dpo
       JOIN producto p ON dpo.id_producto = p.id_producto
       JOIN categoria c ON p.id_categoria = c.id_categoria
