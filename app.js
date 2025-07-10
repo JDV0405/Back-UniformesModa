@@ -18,8 +18,8 @@ const swaggerSpec = require('./swagger.js');
 
 // CORS
 app.use(cors({
-  origin: 'http://localhost:5173', // tu frontend
-  credentials: true, // si usás cookies o tokens en headers
+  origin: 'http://localhost:5173',
+  credentials: true,
 }));
 
 // Servir archivos estáticos desde la carpeta Uniformes_Imagenes
