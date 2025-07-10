@@ -2,7 +2,9 @@ const { UserModel, OrderModel } = require('../models/orderManagement.model.js');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'uniformes_moda_secret_key';
-const JWT_EXPIRES = '24h';
+const REFRESH_SECRET = process.env.REFRESH_SECRET || 'uniformes_moda_refresh_secret';
+const ACCESS_TOKEN_EXPIRES = '30m'; 
+const REFRESH_TOKEN_EXPIRES = '7d';
 
 const UserController = {
   // Login de usuarios
@@ -26,23 +28,27 @@ const UserController = {
         });
       }
       
-      // Generar token JWT
-      const token = jwt.sign(
-        { 
-          id: user.id_usuario, 
-          rol: user.id_rol, 
-          cedula: user.cedula,
-          roles: user.roles || [] 
-        },
-        JWT_SECRET,
-        { expiresIn: JWT_EXPIRES }
-      );
+      const payload = {
+        id: user.id_usuario, 
+        rol: user.id_rol, 
+        cedula: user.cedula,
+        roles: user.roles || []
+      };
+      
+      // Generar ambos tokens
+      const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES });
+      const refreshToken = jwt.sign({ id: user.id_usuario }, REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES });
+      
+      // Aquí deberías guardar el refresh token en la base de datos
+      // await UserModel.saveRefreshToken(user.id_usuario, refreshToken);
       
       res.status(200).json({
         success: true,
         message: 'Login exitoso',
         data: {
-          token,
+          accessToken,
+          refreshToken,
+          expiresIn: 30 * 60, // 30 minutos en segundos
           usuario: {
             id: user.id_usuario,
             cedula: user.cedula,
@@ -63,6 +69,64 @@ const UserController = {
         success: false, 
         message: 'Error en el servidor', 
         error: error.message 
+      });
+    }
+  },
+
+  // Nuevo endpoint para renovar token
+  refreshToken: async (req, res) => {
+    try {
+      const { refreshToken } = req.body;
+      
+      if (!refreshToken) {
+        return res.status(401).json({
+          success: false,
+          message: 'Refresh token requerido'
+        });
+      }
+      
+      // Verificar refresh token
+      const decoded = jwt.verify(refreshToken, REFRESH_SECRET);
+      
+      // Verificar que el refresh token existe en la base de datos
+      // const isValidRefreshToken = await UserModel.validateRefreshToken(decoded.id, refreshToken);
+      // if (!isValidRefreshToken) {
+      //   return res.status(401).json({ success: false, message: 'Refresh token inválido' });
+      // }
+      
+      // Obtener datos actualizados del usuario
+      const user = await UserModel.getEmployeeByUserId(decoded.id);
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Usuario no encontrado'
+        });
+      }
+      
+      const payload = {
+        id: user.id_usuario,
+        rol: user.id_rol,
+        cedula: user.cedula,
+        roles: user.roles || []
+      };
+      
+      // Generar nuevo access token
+      const newAccessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES });
+      
+      res.status(200).json({
+        success: true,
+        data: {
+          accessToken: newAccessToken,
+          expiresIn: 30 * 60 // 30 minutos en segundos
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error al renovar token:', error);
+      res.status(401).json({
+        success: false,
+        message: 'Refresh token inválido o expirado'
       });
     }
   },
