@@ -574,6 +574,110 @@ class AdvanceOrderController {
       });
     }
   }
+
+  // Obtener historial de empleados de una orden
+  async getOrderEmployeeHistory(req, res) {
+    try {
+      const { idOrden } = req.params;
+      
+      if (!idOrden) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Se requiere el ID de la orden' 
+        });
+      }
+      
+      const historial = await AdvanceOrderModel.getOrderEmployeeHistory(idOrden);
+      return res.status(200).json({
+        success: true,
+        data: historial,
+        message: 'Historial de empleados obtenido correctamente'
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al obtener historial de empleados: ${error.message}`
+      });
+    }
+  }
+
+  // Obtener historial de un proceso específico
+  async getProcessEmployeeHistory(req, res) {
+    try {
+      const { idDetalleProceso } = req.params;
+      
+      if (!idDetalleProceso) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Se requiere el ID del detalle de proceso' 
+        });
+      }
+      
+      const historial = await AdvanceOrderModel.getProcessEmployeeHistory(idDetalleProceso);
+      return res.status(200).json({
+        success: true,
+        data: historial,
+        message: 'Historial del proceso obtenido correctamente'
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al obtener historial del proceso: ${error.message}`
+      });
+    }
+  }
+
+  // Obtener log completo de auditoría
+  async getOrderAuditLog(req, res) {
+    try {
+      const { idOrden } = req.params;
+      
+      if (!idOrden) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Se requiere el ID de la orden' 
+        });
+      }
+      
+      const auditLog = await AdvanceOrderModel.getOrderAuditLog(idOrden);
+      return res.status(200).json({
+        success: true,
+        ...auditLog,
+        message: 'Log de auditoría obtenido correctamente'
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al obtener log de auditoría: ${error.message}`
+      });
+    }
+  }
+
+  // Obtener historial detallado de empleados con productos específicos
+  async getDetailedEmployeeAdvanceHistory(req, res) {
+    try {
+      const { idOrden } = req.params;
+      
+      if (!idOrden) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Se requiere el ID de la orden' 
+        });
+      }
+      
+      const historial = await AdvanceOrderModel.getDetailedEmployeeAdvanceHistory(idOrden);
+      return res.status(200).json({
+        success: true,
+        data: historial,
+        message: 'Historial detallado de empleados obtenido correctamente'
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al obtener historial detallado de empleados: ${error.message}`
+      });
+    }
+  }
 }
 
 
