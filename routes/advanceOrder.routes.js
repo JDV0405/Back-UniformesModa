@@ -725,4 +725,267 @@ router.delete('/limpiar-procesos-vacios/:idOrden', advanceOrderController.cleanE
  */
 router.get('/orden/:idOrden/facturas', advanceOrderController.getOrderFacturas);
 
+/**
+ * @swagger
+ * /api/advance/historial/empleados/{idOrden}:
+ *   get:
+ *     summary: Obtiene el historial de empleados que han participado en una orden
+ *     description: Retorna todos los empleados que han intervenido en los diferentes procesos de una orden específica
+ *     tags: [Auditoría y Historial]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idOrden
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la orden a consultar
+ *     responses:
+ *       200:
+ *         description: Historial de empleados de la orden
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id_historial:
+ *                         type: integer
+ *                       cedula_empleado:
+ *                         type: string
+ *                       nombre_completo:
+ *                         type: string
+ *                       nombre_proceso:
+ *                         type: string
+ *                       fecha_participacion:
+ *                         type: string
+ *                         format: date-time
+ *                       observaciones:
+ *                         type: string
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: ID de orden requerido
+ *       500:
+ *         description: Error del servidor
+ */
+router.get('/historial/empleados/:idOrden', advanceOrderController.getOrderEmployeeHistory);
+
+/**
+ * @swagger
+ * /api/advance/historial/empleados/detallado/{idOrden}:
+ *   get:
+ *     summary: Obtiene historial detallado de empleados que han avanzado una orden
+ *     description: Retorna información detallada de los empleados que han avanzado productos en una orden, incluyendo qué productos específicos avanzaron
+ *     tags: [Auditoría y Historial]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idOrden
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la orden a consultar
+ *     responses:
+ *       200:
+ *         description: Historial detallado de empleados con productos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id_historial:
+ *                         type: integer
+ *                       cedula_empleado:
+ *                         type: string
+ *                       nombre_completo:
+ *                         type: string
+ *                       telefono:
+ *                         type: string
+ *                       nombre_proceso:
+ *                         type: string
+ *                       fecha_participacion:
+ *                         type: string
+ *                         format: date-time
+ *                       observaciones:
+ *                         type: string
+ *                       nombre_cliente:
+ *                         type: string
+ *                       fecha_aproximada:
+ *                         type: string
+ *                         format: date
+ *                       prioridad_orden:
+ *                         type: string
+ *                       productos_avanzados:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             id_detalle:
+ *                               type: integer
+ *                             nombre_producto:
+ *                               type: string
+ *                             cantidad_total_producto:
+ *                               type: integer
+ *                             cantidad_en_proceso:
+ *                               type: integer
+ *                             atributos_usuario:
+ *                               type: object
+ *                             observacion_producto:
+ *                               type: string
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: ID de orden requerido
+ *       500:
+ *         description: Error del servidor
+ */
+router.get('/historial/empleados/detallado/:idOrden', advanceOrderController.getDetailedEmployeeAdvanceHistory);
+
+/**
+ * @swagger
+ * /api/advance/historial/proceso/{idDetalleProceso}:
+ *   get:
+ *     summary: Obtiene el historial de empleados de un proceso específico
+ *     description: Retorna todos los empleados que han participado en un proceso específico
+ *     tags: [Auditoría y Historial]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idDetalleProceso
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del detalle de proceso a consultar
+ *     responses:
+ *       200:
+ *         description: Historial de empleados del proceso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       cedula_empleado:
+ *                         type: string
+ *                       nombre_completo:
+ *                         type: string
+ *                       telefono:
+ *                         type: string
+ *                       fecha_participacion:
+ *                         type: string
+ *                         format: date-time
+ *                       observaciones:
+ *                         type: string
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: ID de detalle proceso requerido
+ *       500:
+ *         description: Error del servidor
+ */
+router.get('/historial/proceso/:idDetalleProceso', advanceOrderController.getProcessEmployeeHistory);
+
+/**
+ * @swagger
+ * /api/advance/auditoria/{idOrden}:
+ *   get:
+ *     summary: Obtiene el log completo de auditoría de una orden
+ *     description: Retorna un registro completo de todos los procesos y empleados que han participado en una orden, incluyendo fechas y observaciones
+ *     tags: [Auditoría y Historial]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idOrden
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la orden a auditar
+ *     responses:
+ *       200:
+ *         description: Log completo de auditoría
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id_detalle_proceso:
+ *                         type: integer
+ *                       proceso:
+ *                         type: string
+ *                       empleado_responsable:
+ *                         type: string
+ *                       nombre_responsable:
+ *                         type: string
+ *                       fecha_inicio:
+ *                         type: string
+ *                         format: date-time
+ *                       estado:
+ *                         type: string
+ *                       observaciones_proceso:
+ *                         type: string
+ *                       participantes:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             cedula:
+ *                               type: string
+ *                             nombre:
+ *                               type: string
+ *                             fecha_participacion:
+ *                               type: string
+ *                               format: date-time
+ *                             observaciones:
+ *                               type: string
+ *                 resumen:
+ *                   type: object
+ *                   properties:
+ *                     total_procesos:
+ *                       type: integer
+ *                     total_participaciones:
+ *                       type: integer
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: ID de orden requerido
+ *       500:
+ *         description: Error del servidor
+ */
+router.get('/auditoria/:idOrden', advanceOrderController.getOrderAuditLog);
+
 module.exports = router;

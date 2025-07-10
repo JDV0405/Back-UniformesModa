@@ -345,7 +345,86 @@ class AdvanceOrderModel {
         idFacturaCreada = facturaQuery.rows[0].id_factura;
       }
       
-      // 2. Procesar cada producto con lógica de múltiples destinos
+      // 2. Registrar al empleado en el historial para el proceso actual (si existe)
+      if (idProcesoActualInt && cedulaEmpleadoActual) {
+        // Obtener el id_detalle_proceso del proceso actual
+        const procesoActualQuery = await db.query(
+          `SELECT id_detalle_proceso FROM detalle_proceso 
+          WHERE id_orden = $1 AND id_proceso = $2 AND estado = 'En Proceso'`,
+          [idOrdenInt, idProcesoActualInt]
+        );
+        
+        if (procesoActualQuery.rows.length > 0) {
+          const idDetalleProcesoActual = procesoActualQuery.rows[0].id_detalle_proceso;
+          
+          // Verificar si el empleado ya está registrado en este proceso
+          const empleadoExistenteQuery = await db.query(
+            `SELECT id_historial FROM historial_empleado_proceso 
+            WHERE id_detalle_proceso = $1 AND cedula_empleado = $2`,
+            [idDetalleProcesoActual, cedulaEmpleadoActual]
+          );
+          
+          // Solo registrar si no existe previamente
+          if (empleadoExistenteQuery.rows.length === 0) {
+            // Preparar información detallada de productos avanzados
+            const productosAvanzados = [];
+            let cantidadTotalAvanzada = 0;
+            
+            // Obtener nombres de procesos
+            const procesoOrigenQuery = await db.query(
+              `SELECT nombre FROM estado_proceso WHERE id_proceso = $1`, [idProcesoActualInt]
+            );
+            const procesoDestinoQuery = await db.query(
+              `SELECT nombre FROM estado_proceso WHERE id_proceso = $1`, [idProcesoSiguienteInt || 0]
+            );
+            
+            const nombreProcesoOrigen = procesoOrigenQuery.rows[0]?.nombre || 'Proceso desconocido';
+            const nombreProcesoDestino = procesoDestinoQuery.rows[0]?.nombre || 'Múltiples destinos';
+            
+            // Recopilar información de cada producto avanzado
+            for (const item of itemsToAdvance) {
+              // Obtener nombre del producto
+              const productoQuery = await db.query(
+                `SELECT p.nombre_producto 
+                FROM detalle_producto_orden dpo
+                JOIN producto p ON dpo.id_producto = p.id_producto
+                WHERE dpo.id_detalle = $1`, [item.idDetalle]
+              );
+              
+              const nombreProducto = productoQuery.rows[0]?.nombre_producto || 'Producto desconocido';
+              const cantidadAvanzada = parseInt(item.cantidadAvanzar);
+              
+              productosAvanzados.push({
+                id_detalle: parseInt(item.idDetalle),
+                nombre_producto: nombreProducto,
+                cantidad_avanzada: cantidadAvanzada,
+                proceso_origen: nombreProcesoOrigen,
+                proceso_destino: isLeavingConfeccion && destinosPorProducto[item.idDetalle] 
+                  ? destinosPorProducto[item.idDetalle].nombreProceso 
+                  : nombreProcesoDestino,
+                id_producto_proceso: item.idProductoProceso || null
+              });
+              
+              cantidadTotalAvanzada += cantidadAvanzada;
+            }
+            
+            await db.query(
+              `INSERT INTO historial_empleado_proceso 
+              (id_detalle_proceso, cedula_empleado, observaciones, productos_avanzados, cantidad_total_avanzada)
+              VALUES ($1, $2, $3, $4, $5)`,
+              [
+                idDetalleProcesoActual, 
+                cedulaEmpleadoActual, 
+                `Empleado que avanza productos del proceso ${idProcesoActualInt} al ${idProcesoSiguienteInt || 'procesos específicos'}`,
+                JSON.stringify(productosAvanzados),
+                cantidadTotalAvanzada
+              ]
+            );
+          }
+        }
+      }
+
+      // 3. Procesar cada producto con lógica de múltiples destinos
       for (const item of itemsToAdvance) {
         
         const { idDetalle, cantidadAvanzar, idConfeccionista, idProductoProceso, fechaRecibido, fechaEntrega } = item;
@@ -1237,6 +1316,272 @@ class AdvanceOrderModel {
       return result.rows;
     } catch (error) {
       throw new Error(`Error al obtener facturas de la orden: ${error.message}`);
+    }
+  }
+
+  // Obtener el historial de empleados que han participado en una orden
+  async getOrderEmployeeHistory(idOrden) {
+    try {
+      const query = `
+        SELECT 
+          hep.id_historial,
+          hep.cedula_empleado,
+          e.nombre || ' ' || e.apellidos as nombre_completo,
+          e.telefono,
+          ep.nombre as nombre_proceso,
+          ep.id_proceso,
+          hep.fecha_participacion,
+          hep.observaciones,
+          hep.productos_avanzados,
+          hep.cantidad_total_avanzada,
+          dp.fecha_inicio_proceso,
+          dp.fecha_final_proceso,
+          dp.estado as estado_proceso,
+          -- Información de la orden
+          op.id_cliente,
+          c.nombre as nombre_cliente,
+          op.fecha_aproximada,
+          op.prioridad_orden,
+          -- Productos que se avanzaron en este proceso
+          COALESCE(
+            (SELECT json_agg(
+              json_build_object(
+                'id_detalle', dpo.id_detalle,
+                'id_producto', dpo.id_producto,
+                'nombre_producto', p.nombre_producto,
+                'cantidad_total_producto', dpo.cantidad,
+                'atributos_usuario', dpo.atributosUsuario,
+                'observacion_producto', dpo.observacion
+              )
+            )
+            FROM detalle_producto_orden dpo
+            JOIN producto p ON dpo.id_producto = p.id_producto
+            WHERE dpo.id_orden = dp.id_orden
+            ), '[]'::json
+          ) as productos_orden
+        FROM historial_empleado_proceso hep
+        JOIN detalle_proceso dp ON hep.id_detalle_proceso = dp.id_detalle_proceso
+        JOIN empleado e ON hep.cedula_empleado = e.cedula
+        JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+        JOIN orden_produccion op ON dp.id_orden = op.id_orden
+        JOIN cliente c ON op.id_cliente = c.id_cliente
+        WHERE dp.id_orden = $1
+        AND hep.observaciones LIKE '%avanza productos%'
+        ORDER BY hep.fecha_participacion
+      `;
+      
+      const result = await db.query(query, [idOrden]);
+      
+      // Procesar los resultados para incluir información más limpia
+      const historialProcesado = result.rows.map(row => ({
+        ...row,
+        productos_avanzados: row.productos_avanzados || [],
+        cantidad_total_avanzada: row.cantidad_total_avanzada || 0,
+        resumen_avance: row.productos_avanzados ? 
+          `Avanzó ${row.cantidad_total_avanzada} unidades de ${row.productos_avanzados.length} producto(s)` : 
+          'Sin detalles de cantidad'
+      }));
+      
+      return historialProcesado;
+    } catch (error) {
+      throw new Error(`Error al obtener historial de empleados: ${error.message}`);
+    }
+  }
+
+  // Obtener historial de un proceso específico
+  async getProcessEmployeeHistory(idDetaleProceso) {
+    try {
+      const query = `
+        SELECT 
+          hep.id_historial,
+          hep.cedula_empleado,
+          e.nombre || ' ' || e.apellidos as nombre_completo,
+          e.telefono,
+          hep.fecha_participacion,
+          hep.observaciones
+        FROM historial_empleado_proceso hep
+        JOIN empleado e ON hep.cedula_empleado = e.cedula
+        WHERE hep.id_detalle_proceso = $1
+        ORDER BY hep.fecha_participacion
+      `;
+      
+      const result = await db.query(query, [idDetaleProceso]);
+      return result.rows;
+    } catch (error) {
+      throw new Error(`Error al obtener historial del proceso: ${error.message}`);
+    }
+  }
+
+  // Obtener log completo de auditoría para una orden
+  async getOrderAuditLog(idOrden) {
+    try {
+      const query = `
+        SELECT 
+          'PROCESO' as tipo_evento,
+          dp.id_detalle_proceso,
+          ep.nombre as proceso,
+          dp.cedula_empleado as empleado_responsable,
+          e1.nombre || ' ' || e1.apellidos as nombre_responsable,
+          dp.fecha_inicio_proceso as fecha_evento,
+          dp.observaciones,
+          dp.estado,
+          NULL as empleado_participante,
+          NULL as nombre_participante,
+          NULL as fecha_participacion
+        FROM detalle_proceso dp
+        JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+        JOIN empleado e1 ON dp.cedula_empleado = e1.cedula
+        WHERE dp.id_orden = $1
+        
+        UNION ALL
+        
+        SELECT 
+          'PARTICIPACION' as tipo_evento,
+          hep.id_detalle_proceso,
+          ep.nombre as proceso,
+          dp.cedula_empleado as empleado_responsable,
+          e1.nombre || ' ' || e1.apellidos as nombre_responsable,
+          hep.fecha_participacion as fecha_evento,
+          hep.observaciones,
+          dp.estado,
+          hep.cedula_empleado as empleado_participante,
+          e2.nombre || ' ' || e2.apellidos as nombre_participante,
+          hep.fecha_participacion
+        FROM historial_empleado_proceso hep
+        JOIN detalle_proceso dp ON hep.id_detalle_proceso = dp.id_detalle_proceso
+        JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+        JOIN empleado e1 ON dp.cedula_empleado = e1.cedula
+        JOIN empleado e2 ON hep.cedula_empleado = e2.cedula
+        WHERE dp.id_orden = $1
+        
+        ORDER BY fecha_evento, tipo_evento
+      `;
+      
+      const result = await db.query(query, [idOrden]);
+      
+      // Agrupar por proceso para una mejor presentación
+      const auditPorProceso = {};
+      
+      result.rows.forEach(row => {
+        const key = `${row.id_detalle_proceso}-${row.proceso}`;
+        
+        if (!auditPorProceso[key]) {
+          auditPorProceso[key] = {
+            id_detalle_proceso: row.id_detalle_proceso,
+            proceso: row.proceso,
+            empleado_responsable: row.empleado_responsable,
+            nombre_responsable: row.nombre_responsable,
+            fecha_inicio: null,
+            estado: row.estado,
+            observaciones_proceso: null,
+            participantes: []
+          };
+        }
+        
+        if (row.tipo_evento === 'PROCESO') {
+          auditPorProceso[key].fecha_inicio = row.fecha_evento;
+          auditPorProceso[key].observaciones_proceso = row.observaciones;
+        } else if (row.tipo_evento === 'PARTICIPACION') {
+          auditPorProceso[key].participantes.push({
+            cedula: row.empleado_participante,
+            nombre: row.nombre_participante,
+            fecha_participacion: row.fecha_participacion,
+            observaciones: row.observaciones
+          });
+        }
+      });
+      
+      return {
+        success: true,
+        data: Object.values(auditPorProceso),
+        resumen: {
+          total_procesos: Object.keys(auditPorProceso).length,
+          total_participaciones: result.rows.filter(r => r.tipo_evento === 'PARTICIPACION').length
+        }
+      };
+    } catch (error) {
+      throw new Error(`Error al obtener log de auditoría: ${error.message}`);
+    }
+  }
+
+  // Obtener historial detallado de avances por empleado (con productos específicos)
+  async getDetailedEmployeeAdvanceHistory(idOrden) {
+    try {
+      const query = `
+        WITH empleados_que_avanzan AS (
+          SELECT DISTINCT
+            hep.id_historial,
+            hep.cedula_empleado,
+            e.nombre || ' ' || e.apellidos as nombre_completo,
+            e.telefono,
+            ep.nombre as nombre_proceso,
+            ep.id_proceso,
+            hep.fecha_participacion,
+            hep.observaciones,
+            hep.productos_avanzados,
+            hep.cantidad_total_avanzada,
+            dp.fecha_inicio_proceso,
+            dp.fecha_final_proceso,
+            dp.estado as estado_proceso,
+            dp.id_detalle_proceso,
+            -- Información de la orden
+            op.id_cliente,
+            c.nombre as nombre_cliente,
+            op.fecha_aproximada,
+            op.prioridad_orden
+          FROM historial_empleado_proceso hep
+          JOIN detalle_proceso dp ON hep.id_detalle_proceso = dp.id_detalle_proceso
+          JOIN empleado e ON hep.cedula_empleado = e.cedula
+          JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+          JOIN orden_produccion op ON dp.id_orden = op.id_orden
+          JOIN cliente c ON op.id_cliente = c.id_cliente
+          WHERE dp.id_orden = $1
+          AND hep.observaciones LIKE '%avanza productos%'
+        )
+        SELECT 
+          eqa.*,
+          -- Información adicional de productos
+          COALESCE(
+            (SELECT json_agg(
+              json_build_object(
+                'id_detalle', dpo.id_detalle,
+                'id_producto', dpo.id_producto,
+                'nombre_producto', p.nombre_producto,
+                'cantidad_total_producto', dpo.cantidad,
+                'atributos_usuario', dpo.atributosUsuario,
+                'observacion_producto', dpo.observacion,
+                'url_producto', dpo.url_producto,
+                'estado_producto', dpo.estado
+              )
+            )
+            FROM detalle_producto_orden dpo
+            JOIN producto p ON dpo.id_producto = p.id_producto
+            WHERE dpo.id_orden = $1
+            ), '[]'::json
+          ) as productos_orden_completos
+        FROM empleados_que_avanzan eqa
+        ORDER BY eqa.fecha_participacion
+      `;
+      
+      const result = await db.query(query, [idOrden]);
+      
+      // Procesar los resultados para incluir información más detallada
+      const historialDetallado = result.rows.map(row => ({
+        ...row,
+        productos_avanzados: row.productos_avanzados || [],
+        cantidad_total_avanzada: row.cantidad_total_avanzada || 0,
+        resumen_detallado: {
+          total_productos_avanzados: row.productos_avanzados ? row.productos_avanzados.length : 0,
+          cantidad_total: row.cantidad_total_avanzada || 0,
+          descripcion: row.productos_avanzados ? 
+            `${row.nombre_completo} avanzó ${row.cantidad_total_avanzada} unidades de ${row.productos_avanzados.length} producto(s) diferentes` :
+            `${row.nombre_completo} realizó un avance sin detalles específicos de cantidad`
+        }
+      }));
+      
+      return historialDetallado;
+    } catch (error) {
+      throw new Error(`Error al obtener historial detallado de empleados: ${error.message}`);
     }
   }
 
