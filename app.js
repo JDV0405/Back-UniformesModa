@@ -18,7 +18,7 @@ const swaggerSpec = require('./swagger.js');
 
 // CORS
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: true, // Permite cualquier origen
   credentials: true,
 }));
 
