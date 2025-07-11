@@ -769,7 +769,7 @@ async function saveAllProductImages(allImages, productId, orderId, baseUrl) {
 
     for (let i = 0; i < allImages.length; i++) {
         const imageItem = allImages[i];
-        let fullUrl;
+        
 
         if (imageItem.type === 'direct') {
             // Es una imagen directa (archivo ya guardado por multer.diskStorage)
