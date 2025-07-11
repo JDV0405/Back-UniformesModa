@@ -1,10 +1,44 @@
 const orderModel = require('../models/createorderProduction.models');
 const multer = require('multer');
 const pool = require('../database/db.js');
+const path = require('path');
+const fs = require('fs');
 
-const storage = multer.memoryStorage();
+// Configuración unificada de storage usando diskStorage
+const unifiedStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        let uploadPath;
+        
+        if (file.fieldname === 'comprobanteFile') {
+            uploadPath = 'C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\comprobantes';
+        } else if (file.fieldname.startsWith('productImages')) {
+            uploadPath = 'C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\productos';
+        } else {
+            uploadPath = 'C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\otros';
+        }
+        
+        if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        cb(null, uploadPath);
+    },
+    filename: (req, file, cb) => {
+        const timestamp = Date.now();
+        const randomSuffix = Math.round(Math.random() * 1E9);
+        const extension = path.extname(file.originalname);
+        
+        if (file.fieldname === 'comprobanteFile') {
+            cb(null, `comprobante_${timestamp}_${randomSuffix}${extension}`);
+        } else if (file.fieldname.startsWith('productImages')) {
+            cb(null, `producto_${timestamp}_${randomSuffix}${extension}`);
+        } else {
+            cb(null, `archivo_${timestamp}_${randomSuffix}${extension}`);
+        }
+    }
+});
+
 const upload = multer({ 
-    storage: storage,
+    storage: unifiedStorage,
     limits: {
         fileSize: 10 * 1024 * 1024, // 10MB por archivo
         files: 30, // Aumentado para más archivos
