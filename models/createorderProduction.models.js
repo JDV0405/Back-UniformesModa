@@ -1,10 +1,10 @@
 const pool = require('../database/db.js');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-async function createOrder(orderData, clientData, products, paymentInfo, paymentProofFile , productFiles) {
+async function createOrder(orderData, clientData, products, paymentInfo, paymentProofFile, productFiles, baseUrl) {
     const client = await pool.connect();
     
     try {
@@ -19,7 +19,7 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
         
         let comprobanteId = null;
         if (paymentInfo.tipoPago === 'contado' && paymentProofFile) {
-            const uploadPath = await savePaymentProof(paymentProofFile);
+            const uploadPath = await savePaymentProof(paymentProofFile, baseUrl);
             comprobanteId = await createPaymentProof(client, uploadPath);
         }
         
@@ -85,7 +85,7 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
             // Guardar todas las imágenes en una sola operación
             let allImageUrls = [];
             if (allProductImages.length > 0) {
-                allImageUrls = await saveAllProductImages(allProductImages, product.idProducto, orderId);
+                allImageUrls = await saveAllProductImages(allProductImages, product.idProducto, orderId, baseUrl);
             }
             
             // Combinar todas las URLs para url_producto (sin distinguir tipo)
@@ -203,12 +203,35 @@ async function addProductToOrder(client, orderId, productId, quantity, userAttri
     return result.rows[0].id_detalle;
 }
 
-async function savePaymentProof(file) {
-    // El archivo ya está guardado en disco por multer.diskStorage
-    // Devolver URL completa como en las facturas
-    const baseUrl = `http://localhost:3000`;
-    const fullUrl = `${baseUrl}/images/comprobantes/${file.filename}`;
-    return fullUrl;
+async function savePaymentProof(file, baseUrl) {
+    const desktopDir = require('os').homedir() + '/Desktop';
+    const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'comprobantes');
+    
+    if (!fs.existsSync(uploadsDir)){
+        fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    
+    const timestamp = Date.now();
+    const filename = `comprobante_${timestamp}_${file.originalname}`;
+    const filepath = path.join(uploadsDir, filename);
+    
+    const writeStream = fs.createWriteStream(filepath);
+    
+    return new Promise((resolve, reject) => {
+        // Write file
+        writeStream.write(file.buffer);
+        writeStream.end();
+        
+        writeStream.on('finish', () => {
+            // Devolver URL completa como en las facturas
+            const fullUrl = `${baseUrl}/comprobantes/${filename}`;
+            resolve(fullUrl);
+        });
+        
+        writeStream.on('error', (err) => {
+            reject(err);
+        });
+    });
 }
 
 async function createPaymentProof(client, filePath) {
@@ -727,9 +750,18 @@ function extractImageName(base64String) {
 
 // Función para guardar imágenes extraídas de atributos
 // Función unificada para guardar todas las imágenes de un producto (directas + atributos)
-async function saveAllProductImages(allImages, productId, orderId) {
+async function saveAllProductImages(allImages, productId, orderId, baseUrl) {
     if (!allImages || allImages.length === 0) {
         return [];
+    }
+
+    // Crear directorio en el escritorio para las imágenes de productos (ruta absoluta como facturas)
+    const desktopDir = require('os').homedir() + '/Desktop';
+    const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'productos');
+
+    // Ensure directory exists
+    if (!fs.existsSync(uploadsDir)){
+        fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
     const savedImages = [];
@@ -755,27 +787,29 @@ async function saveAllProductImages(allImages, productId, orderId) {
             
             const timestamp = Date.now();
             const extension = image.filename.split('.').pop();
-            const filename = `producto_${productId}_orden_${orderId}_attr_${timestamp}_${i}.${extension}`;
-            const filepath = path.join(uploadsDir, filename);
+            filename = `producto_${productId}_orden_${orderId}_attr_${timestamp}_${i}.${extension}`;
+            filepath = path.join(uploadsDir, filename);
+            imageBuffer = image.buffer;
+        }
+
+        // Guardar la imagen
+        const writeStream = fs.createWriteStream(filepath);
+        
+        await new Promise((resolve, reject) => {
+            writeStream.write(imageBuffer);
+            writeStream.end();
             
-            const writeStream = fs.createWriteStream(filepath);
-            
-            await new Promise((resolve, reject) => {
-                writeStream.write(image.buffer);
-                writeStream.end();
-                
-                writeStream.on('finish', () => {
-                    resolve();
-                });
-                
-                writeStream.on('error', (err) => {
-                    reject(err);
-                });
+            writeStream.on('finish', () => {
+                resolve();
             });
             
-            fullUrl = `${baseUrl}/images/productos/${filename}`;
-        }
+            writeStream.on('error', (err) => {
+                reject(err);
+            });
+        });
         
+        // Crear URL completa como en las facturas
+        const fullUrl = `${baseUrl}/productos/${filename}`;
         savedImages.push({
             type: imageItem.type,
             url: fullUrl,

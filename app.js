@@ -18,8 +18,8 @@ const swaggerSpec = require('./swagger.js');
 
 // CORS
 app.use(cors({
-  origin: 'http://localhost:5173', // tu frontend
-  credentials: true, // si usás cookies o tokens en headers
+  origin: true, // Permite cualquier origen
+  credentials: true,
 }));
 
 // Servir archivos estáticos desde la carpeta Uniformes_Imagenes
@@ -27,6 +27,12 @@ app.use('/images', express.static(path.join(__dirname, 'Uniformes_Imagenes')));
 
 // Servir archivos estáticos de facturas desde el escritorio
 app.use('/facturas', express.static('C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\facturas'));
+
+// Servir archivos estáticos de productos desde el escritorio
+app.use('/productos', express.static('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\productos'));
+
+// Servir archivos estáticos de comprobantes desde el escritorio
+app.use('/comprobantes', express.static('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\comprobantes'));
 
 // Aumentar límites para JSON y URL-encoded
 app.use(express.json({ limit: '50mb' }));
