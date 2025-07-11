@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-async function createOrder(orderData, clientData, products, paymentInfo, paymentProofFile , productFiles) {
+async function createOrder(orderData, clientData, products, paymentInfo, paymentProofFile, productFiles, baseUrl) {
     const client = await pool.connect();
     
     try {
@@ -19,7 +19,7 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
         
         let comprobanteId = null;
         if (paymentInfo.tipoPago === 'contado' && paymentProofFile) {
-            const uploadPath = await savePaymentProof(paymentProofFile);
+            const uploadPath = await savePaymentProof(paymentProofFile, baseUrl);
             comprobanteId = await createPaymentProof(client, uploadPath);
         }
         
@@ -85,7 +85,7 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
             // Guardar todas las imágenes en una sola operación
             let allImageUrls = [];
             if (allProductImages.length > 0) {
-                allImageUrls = await saveAllProductImages(allProductImages, product.idProducto, orderId);
+                allImageUrls = await saveAllProductImages(allProductImages, product.idProducto, orderId, baseUrl);
             }
             
             // Combinar todas las URLs para url_producto (sin distinguir tipo)
@@ -203,7 +203,7 @@ async function addProductToOrder(client, orderId, productId, quantity, userAttri
     return result.rows[0].id_detalle;
 }
 
-async function savePaymentProof(file) {
+async function savePaymentProof(file, baseUrl) {
     const desktopDir = require('os').homedir() + '/Desktop';
     const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'comprobantes');
     
@@ -223,8 +223,9 @@ async function savePaymentProof(file) {
         writeStream.end();
         
         writeStream.on('finish', () => {
-            // Devolver ruta relativa
-            resolve(`Uniformes_Imagenes/comprobantes/${filename}`);
+            // Devolver URL completa como en las facturas
+            const fullUrl = `${baseUrl}/comprobantes/${filename}`;
+            resolve(fullUrl);
         });
         
         writeStream.on('error', (err) => {
@@ -749,12 +750,12 @@ function extractImageName(base64String) {
 
 // Función para guardar imágenes extraídas de atributos
 // Función unificada para guardar todas las imágenes de un producto (directas + atributos)
-async function saveAllProductImages(allImages, productId, orderId) {
+async function saveAllProductImages(allImages, productId, orderId, baseUrl) {
     if (!allImages || allImages.length === 0) {
         return [];
     }
 
-    // Crear directorio en el escritorio para las imágenes de productos
+    // Crear directorio en el escritorio para las imágenes de productos (ruta absoluta como facturas)
     const desktopDir = require('os').homedir() + '/Desktop';
     const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'productos');
 
@@ -801,11 +802,11 @@ async function saveAllProductImages(allImages, productId, orderId) {
             });
         });
         
-        // Guardar ruta relativa para la base de datos
-        const relativePath = `Uniformes_Imagenes/productos/${filename}`;
+        // Crear URL completa como en las facturas
+        const fullUrl = `${baseUrl}/productos/${filename}`;
         savedImages.push({
             type: imageItem.type,
-            url: relativePath,
+            url: fullUrl,
             originalIndex: imageItem.index
         });
     }

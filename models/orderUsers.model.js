@@ -323,13 +323,8 @@ const getOrderDetailsById = async (orderId) => {
         productoConColor.confeccionista = null;
       }
       
-      // Convertir url_producto a base64
-      if (productoConColor.url_producto) {
-        const base64Image = convertImageToBase64(productoConColor.url_producto);
-        if (base64Image) {
-          productoConColor.url_producto = base64Image;
-        }
-      }
+      // Mantener url_producto como URL completa (no convertir a base64)
+      // Las URLs ya vienen completas desde el modelo de creación de órdenes
       
       // NO procesar imágenes en atributos - mantener atributos como están
       // (Las imágenes ahora se guardan solo en url_producto)
@@ -391,15 +386,12 @@ const getOrderDetailsById = async (orderId) => {
       return productoConColor;
     });
 
-    // Procesamiento del comprobante de pago
-    let comprobanteBase64 = null;
-    if (orderBasicInfo.url_comprobante) {
-      comprobanteBase64 = convertImageToBase64(orderBasicInfo.url_comprobante);
-    }
+    // Mantener el comprobante como URL completa (no convertir a base64)
+    // Las URLs ya vienen completas desde el modelo de creación de órdenes
     
     return {
       ...order,
-      url_comprobante: comprobanteBase64,
+      url_comprobante: orderBasicInfo.url_comprobante,
       empleado_responsable: {
         nombre: orderBasicInfo.empleado_nombre,
         apellidos: orderBasicInfo.empleado_apellidos
@@ -475,11 +467,8 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
       delete orderInfo.telefono_info;
     }
 
-    // Procesar comprobante a base64 si existe
-    let comprobanteBase64 = null;
-    if (orderInfo.url_comprobante) {
-      comprobanteBase64 = convertImageToBase64(orderInfo.url_comprobante);
-    }
+    // Mantener comprobante como URL completa (no convertir a base64)
+    // Las URLs ya vienen completas desde el modelo de creación de órdenes
 
     // Consulta principal para obtener productos por orden y proceso
     const productsQuery = await pool.query(
@@ -597,13 +586,8 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
       // Agregar el campo bordado como propiedad separada para compatibilidad
       productoConColor.bordado = bordado;
       
-      // Convertir url_producto a base64
-      if (productoConColor.url_producto) {
-        const base64Image = convertImageToBase64(productoConColor.url_producto);
-        if (base64Image) {
-          productoConColor.url_producto = base64Image;
-        }
-      }
+      // Mantener url_producto como URL completa (no convertir a base64)
+      // Las URLs ya vienen completas desde el modelo de creación de órdenes
       
       // NO procesar imágenes en atributos - mantener atributos como están
       // (Las imágenes ahora se guardan solo en url_producto)
@@ -678,7 +662,7 @@ const getProductsByOrderAndProcess = async (orderId, processId) => {
     // Estructurar la información completa de la orden
     const orderCompleteInfo = {
       ...orderInfo,
-      url_comprobante: comprobanteBase64,
+      url_comprobante: orderInfo.url_comprobante,
       empleado_responsable: {
         nombre: orderInfo.empleado_nombre,
         apellidos: orderInfo.empleado_apellidos

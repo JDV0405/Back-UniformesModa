@@ -233,6 +233,9 @@ async function createOrder(req, res) {
             paymentProofFile = req.files.comprobanteFile[0];
         }
         
+        // Crear baseUrl para las URLs completas de archivos
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        
         // Create the order with all the prepared data
         const result = await orderModel.createOrder(
             orderData,
@@ -240,7 +243,8 @@ async function createOrder(req, res) {
             products,
             paymentInfo,
             paymentProofFile,
-            productFiles
+            productFiles,
+            baseUrl
         );
         
         res.status(200).json(result);
