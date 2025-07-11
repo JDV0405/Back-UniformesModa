@@ -1,5 +1,5 @@
 const  pool  = require('../database/db.js'); // Importar la conexión a la base de datos
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 const UserModel = {
   login: async (email, password) => {
