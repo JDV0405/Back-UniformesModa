@@ -51,10 +51,10 @@ app.use('/api/orders', orderRoutes);
 app.use('/api', createOrder);
 app.use('/api/orderManagement', orderManagementRoutes);
 app.use('/api', productRoutes);
-app.use('/api/produccion', advanceOrderRoutes);
+app.use('/api/production', advanceOrderRoutes);
 app.use('/api', createElementsRoutes);
-app.use('/api/valoraciones', valoracionesRoutes);
-app.use('/api/confeccionistas', confeccionistaRoutes);
+app.use('/api', valoracionesRoutes);
+app.use('/api', confeccionistaRoutes);
 
 
 // Use routes

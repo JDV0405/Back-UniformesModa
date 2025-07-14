@@ -229,7 +229,7 @@ router.get('/orden/:idOrden/proceso/:idProceso', advanceOrderController.getProdu
  *       500:
  *         description: Error del servidor
  */
-router.post('/avanzar', advanceOrderController.advanceProducts);
+router.post('/advance', advanceOrderController.advanceProducts);
 
 /**
  * @swagger
@@ -349,7 +349,7 @@ router.get('/proceso/:idProceso', advanceOrderController.getOrdersByProcess);
  *       500:
  *         description: Error del servidor
  */
-router.get('/orden/:idOrden/detalle', advanceOrderController.getOrderDetail);
+router.get('/order/:idOrden/details', advanceOrderController.getOrderDetail);
 
 /**
  * @swagger
@@ -513,7 +513,7 @@ router.get('/ordersCompleted', advanceOrderController.getCompletedOrders);
 router.get('/ordenes-completadas/:idOrden', advanceOrderController.getCompletedOrderDetail);
 
 // Obtener confeccionistas activos
-router.get('/confeccionistas', advanceOrderController.getActiveConfeccionistas);
+router.get('/GetManufacturer', advanceOrderController.getActiveConfeccionistas);
 
 /**
  * @swagger
@@ -548,7 +548,7 @@ router.get('/confeccionistas', advanceOrderController.getActiveConfeccionistas);
  *       500:
  *         description: Error interno del servidor
  */
-router.get('/procesos-disponibles-confeccion', advanceOrderController.getAvailableProcessesFromConfeccion);
+router.get('/available-manufacturing-processes', advanceOrderController.getAvailableProcessesFromConfeccion);
 
 /**
  * @swagger
@@ -622,7 +622,7 @@ router.get('/procesos-disponibles-confeccion', advanceOrderController.getAvailab
  *       500:
  *         description: Error interno del servidor
  */
-router.post('/avanzar-desde-confeccion', advanceOrderController.advanceProductsFromConfeccion);
+router.post('/advance-from-making', advanceOrderController.advanceProductsFromConfeccion);
 
 /**
  * @swagger
@@ -857,7 +857,7 @@ router.get('/historial/empleados/:idOrden', advanceOrderController.getOrderEmplo
  *       500:
  *         description: Error del servidor
  */
-router.get('/historial/empleados/detallado/:idOrden', advanceOrderController.getDetailedEmployeeAdvanceHistory);
+router.get('/record/employees/detailed/:idOrden', advanceOrderController.getDetailedEmployeeAdvanceHistory);
 
 /**
  * @swagger
