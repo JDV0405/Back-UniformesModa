@@ -14,7 +14,7 @@ const ConfeccionistaController = require('../controllers/manufacturer.controller
  *       500:
  *         description: Error del servidor
  */
-router.get('/', ConfeccionistaController.getAllConfeccionistas);
+router.get('/getAllConfeccionistas', ConfeccionistaController.getAllConfeccionistas);
 
 /**
  * @swagger
@@ -28,7 +28,7 @@ router.get('/', ConfeccionistaController.getAllConfeccionistas);
  *       500:
  *         description: Error del servidor
  */
-router.get('/productos', ConfeccionistaController.getAllConfeccionistasWithProducts);
+router.get('/getAllConfeccionistasWithProducts', ConfeccionistaController.getAllConfeccionistasWithProducts);
 
 /**
  * @swagger
@@ -51,7 +51,7 @@ router.get('/productos', ConfeccionistaController.getAllConfeccionistasWithProdu
  *       500:
  *         description: Error del servidor
  */
-router.get('/:id', ConfeccionistaController.getConfeccionistaById);
+router.get('getConfeccionistaById/:id', ConfeccionistaController.getConfeccionistaById);
 
 /**
  * @swagger
@@ -119,7 +119,7 @@ router.get('/:id/productos', ConfeccionistaController.getProductosByConfeccionis
  *       500:
  *         description: Error del servidor
  */
-router.post('/', ConfeccionistaController.createConfeccionista);
+router.post('/createManufacturer', ConfeccionistaController.createConfeccionista);
 
 /**
  * @swagger
@@ -171,7 +171,7 @@ router.post('/', ConfeccionistaController.createConfeccionista);
  *       500:
  *         description: Error del servidor
  */
-router.put('/:id', ConfeccionistaController.updateConfeccionista);
+router.put('updateManufacturer/:id', ConfeccionistaController.updateConfeccionista);
 
 /**
  * @swagger
@@ -194,6 +194,6 @@ router.put('/:id', ConfeccionistaController.updateConfeccionista);
  *       500:
  *         description: Error del servidor
  */
-router.delete('/:id', ConfeccionistaController.deleteConfeccionista);
+router.delete('deleteManufacturer/:id', ConfeccionistaController.deleteConfeccionista);
 
 module.exports = router;
