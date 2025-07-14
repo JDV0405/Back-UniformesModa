@@ -765,56 +765,56 @@ async function saveAllProductImages(allImages, productId, orderId, baseUrl) {
     }
 
     const savedImages = [];
-    const baseUrl = `http://localhost:3000`;
 
     for (let i = 0; i < allImages.length; i++) {
         const imageItem = allImages[i];
-        
+        let fullUrl, filename, filepath, imageBuffer;
 
         if (imageItem.type === 'direct') {
             // Es una imagen directa (archivo ya guardado por multer.diskStorage)
             const file = imageItem.file;
-            fullUrl = `${baseUrl}/images/productos/${file.filename}`;
+            fullUrl = `${baseUrl}/productos/${file.filename}`;
+            
+            // No necesitamos guardar el archivo, ya está guardado
+            savedImages.push({
+                type: imageItem.type,
+                url: fullUrl,
+                originalIndex: imageItem.index
+            });
         } else if (imageItem.type === 'attribute') {
             // Es una imagen de atributo (base64 convertida) - esta sí hay que guardarla manualmente
             const image = imageItem.image;
-            const desktopDir = require('os').homedir() + '/Desktop';
-            const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'productos');
-            
-            if (!fs.existsSync(uploadsDir)){
-                fs.mkdirSync(uploadsDir, { recursive: true });
-            }
             
             const timestamp = Date.now();
             const extension = image.filename.split('.').pop();
             filename = `producto_${productId}_orden_${orderId}_attr_${timestamp}_${i}.${extension}`;
             filepath = path.join(uploadsDir, filename);
             imageBuffer = image.buffer;
-        }
 
-        // Guardar la imagen
-        const writeStream = fs.createWriteStream(filepath);
-        
-        await new Promise((resolve, reject) => {
-            writeStream.write(imageBuffer);
-            writeStream.end();
+            // Guardar la imagen
+            const writeStream = fs.createWriteStream(filepath);
             
-            writeStream.on('finish', () => {
-                resolve();
+            await new Promise((resolve, reject) => {
+                writeStream.write(imageBuffer);
+                writeStream.end();
+                
+                writeStream.on('finish', () => {
+                    resolve();
+                });
+                
+                writeStream.on('error', (err) => {
+                    reject(err);
+                });
             });
             
-            writeStream.on('error', (err) => {
-                reject(err);
+            // Crear URL completa como en las facturas
+            fullUrl = `${baseUrl}/productos/${filename}`;
+            savedImages.push({
+                type: imageItem.type,
+                url: fullUrl,
+                originalIndex: imageItem.index
             });
-        });
-        
-        // Crear URL completa como en las facturas
-        const fullUrl = `${baseUrl}/productos/${filename}`;
-        savedImages.push({
-            type: imageItem.type,
-            url: fullUrl,
-            originalIndex: imageItem.index
-        });
+        }
     }
 
     return savedImages;

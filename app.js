@@ -8,7 +8,7 @@ const createOrder = require('./routes/createorderProduction.routes.js');
 const productRoutes = require('./routes/getProductsAndAttributes.routes');
 const advanceOrderRoutes = require('./routes/advanceOrder.routes.js');
 const createElementsRoutes = require('./routes/createElements.routes.js');
-const valoracionesRoutes = require('./routes/valoracion.routes.js');
+const valoracionesRoutes = require('./routes/assessment.routes.js');
 const confeccionistaRoutes = require('./routes/manufacturer.routes.js'); 
 const path = require('path');
 

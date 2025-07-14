@@ -1,4 +1,4 @@
-const ValoracionModel = require('../models/valoracion.model.js');
+const ValoracionModel = require('../models/assessment.model.js');
 
 const ValoracionController = {
   // Crear una nueva valoración
