@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const ValoracionController = require('../controllers/assessment.controller.js');
+const assessmentController = require('../controllers/assessment.controller.js');
 
 /**
  * @swagger
@@ -37,7 +37,7 @@ const ValoracionController = require('../controllers/assessment.controller.js');
  *       500:
  *         description: Error del servidor
  */
-router.post('/', ValoracionController.crearValoracion);
+router.post('/', assessmentController.crearValoracion);
 
 /**
  * @swagger
@@ -51,7 +51,7 @@ router.post('/', ValoracionController.crearValoracion);
  *       500:
  *         description: Error del servidor
  */
-router.get('/', ValoracionController.obtenerTodasValoraciones);
+router.get('/', assessmentController.obtenerTodasValoraciones);
 
 /**
  * @swagger
@@ -74,7 +74,7 @@ router.get('/', ValoracionController.obtenerTodasValoraciones);
  *       500:
  *         description: Error del servidor
  */
-router.get('/:id', ValoracionController.obtenerValoracionPorId);
+router.get('/:id', assessmentController.obtenerValoracionPorId);
 
 /**
  * @swagger
@@ -97,7 +97,7 @@ router.get('/:id', ValoracionController.obtenerValoracionPorId);
  *       500:
  *         description: Error del servidor
  */
-router.get('/orden/:idOrden', ValoracionController.obtenerValoracionPorOrden);
+router.get('/orden/:idOrden', assessmentController.obtenerValoracionPorOrden);
 
 /**
  * @swagger
@@ -139,7 +139,7 @@ router.get('/orden/:idOrden', ValoracionController.obtenerValoracionPorOrden);
  *       500:
  *         description: Error del servidor
  */
-router.put('/:id', ValoracionController.actualizarValoracion);
+router.put('/:id', assessmentController.actualizarValoracion);
 
 /**
  * @swagger
@@ -162,7 +162,7 @@ router.put('/:id', ValoracionController.actualizarValoracion);
  *       500:
  *         description: Error del servidor
  */
-router.delete('/:id', ValoracionController.eliminarValoracion);
+router.delete('/:id', assessmentController.eliminarValoracion);
 
 /**
  * @swagger
@@ -176,6 +176,6 @@ router.delete('/:id', ValoracionController.eliminarValoracion);
  *       500:
  *         description: Error del servidor
  */
-router.get('/estadisticas/general', ValoracionController.obtenerEstadisticas);
+router.get('/estadisticas/general', assessmentController.obtenerEstadisticas);
 
 module.exports = router;

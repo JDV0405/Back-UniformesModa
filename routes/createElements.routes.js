@@ -156,7 +156,7 @@ router.put('/orders/:id_orden/priority', changePriorityOrder);
  *       500:
  *         description: Error del servidor
  */
-router.patch('/producto-proceso/:id_producto_proceso/cantidad-cortada', actualizarCantidadCortadaController);
+router.patch('/updateCutQuantity/:id_producto_proceso/cut-quantity', actualizarCantidadCortadaController);
 
 /**
  * @swagger
@@ -195,7 +195,7 @@ router.patch('/producto-proceso/:id_producto_proceso/cantidad-cortada', actualiz
  *       500:
  *         description: Error del servidor
  */
-router.patch('/producto-proceso/:id_producto_proceso/cortado', marcarCortado);
+router.patch('/markCut/:id_producto_proceso/cut', marcarCortado);
 
 /**
  * @swagger
@@ -327,6 +327,6 @@ router.get('/productos/:estado', obtenerProductosCortados);
  *       500:
  *         description: Error del servidor
  */
-router.get('/orders/:id_orden/productos', obtenerProductosOrden);
+router.get('/getProductsByOrden/:id_orden', obtenerProductosOrden);
 
 module.exports = router;

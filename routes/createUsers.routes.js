@@ -43,7 +43,7 @@ const usuarioController = require('../controllers/createUsers.controller.js');
  *         description: Error interno del servidor
  */
 
-router.post('/usuarios', usuarioController.crearUsuario);
+router.post('/createUsers', usuarioController.crearUsuario);
 
 /**
  * @swagger
@@ -92,7 +92,7 @@ router.post('/usuarios', usuarioController.crearUsuario);
  *         description: Error interno del servidor
  */
 
-router.get('/usuarios', usuarioController.obtenerTodosLosUsuarios);
+router.get('/getAllUsers', usuarioController.obtenerTodosLosUsuarios);
 
 /**
  * @swagger
@@ -144,7 +144,7 @@ router.get('/usuarios', usuarioController.obtenerTodosLosUsuarios);
  *         description: Error interno del servidor
  */
 
-router.put('/usuarios/:cedula', usuarioController.editarUsuario);
+router.put('/editUsers/:cedula', usuarioController.editarUsuario);
 
 /**
  * @swagger
