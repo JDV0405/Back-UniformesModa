@@ -71,6 +71,7 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
             
             const allProductImages = [];
             
+            // Agregar imágenes directas (archivos subidos)
             if (productImageFiles.length > 0) {
                 for (let j = 0; j < productImageFiles.length; j++) {
                     const file = productImageFiles[j];
@@ -78,6 +79,18 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                         type: 'direct',
                         file: file,
                         index: j
+                    });
+                }
+            }
+            
+            // Agregar imágenes extraídas de atributos (base64)
+            if (extractedImages.length > 0) {
+                for (let j = 0; j < extractedImages.length; j++) {
+                    const image = extractedImages[j];
+                    allProductImages.push({
+                        type: 'attribute',
+                        image: image,
+                        index: productImageFiles.length + j
                     });
                 }
             }
@@ -204,34 +217,57 @@ async function addProductToOrder(client, orderId, productId, quantity, userAttri
 }
 
 async function savePaymentProof(file, baseUrl) {
-    const desktopDir = require('os').homedir() + '/Desktop';
-    const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'comprobantes');
-    
-    if (!fs.existsSync(uploadsDir)){
-        fs.mkdirSync(uploadsDir, { recursive: true });
+    // Validar que el archivo existe
+    if (!file) {
+        throw new Error('El archivo de comprobante no fue proporcionado');
     }
     
-    const timestamp = Date.now();
-    const filename = `comprobante_${timestamp}_${file.originalname}`;
-    const filepath = path.join(uploadsDir, filename);
+    // Si el archivo viene de diskStorage, ya está guardado - solo necesitamos generar la URL
+    if (file.filename && file.path) {
+        // El archivo ya fue guardado por multer.diskStorage
+        const fullUrl = `${baseUrl}/comprobantes/${file.filename}`;
+        return fullUrl;
+    }
     
-    const writeStream = fs.createWriteStream(filepath);
+    // Si el archivo viene de memoryStorage, necesitamos guardarlo manualmente
+    if (file.buffer) {
+        const desktopDir = require('os').homedir() + '/Desktop';
+        const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'comprobantes');
+        
+        if (!fs.existsSync(uploadsDir)){
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+        
+        const timestamp = Date.now();
+        const filename = `comprobante_${timestamp}_${file.originalname}`;
+        const filepath = path.join(uploadsDir, filename);
+        
+        const writeStream = fs.createWriteStream(filepath);
+        
+        return new Promise((resolve, reject) => {
+            // Validar buffer antes de escribir
+            if (!Buffer.isBuffer(file.buffer)) {
+                reject(new Error('El buffer del archivo no es válido'));
+                return;
+            }
+            
+            // Write file
+            writeStream.write(file.buffer);
+            writeStream.end();
+            
+            writeStream.on('finish', () => {
+                // Devolver URL completa como en las facturas
+                const fullUrl = `${baseUrl}/comprobantes/${filename}`;
+                resolve(fullUrl);
+            });
+            
+            writeStream.on('error', (err) => {
+                reject(err);
+            });
+        });
+    }
     
-    return new Promise((resolve, reject) => {
-        // Write file
-        writeStream.write(file.buffer);
-        writeStream.end();
-        
-        writeStream.on('finish', () => {
-            // Devolver URL completa como en las facturas
-            const fullUrl = `${baseUrl}/comprobantes/${filename}`;
-            resolve(fullUrl);
-        });
-        
-        writeStream.on('error', (err) => {
-            reject(err);
-        });
-    });
+    throw new Error('El archivo no tiene ni buffer ni path - formato no válido');
 }
 
 async function createPaymentProof(client, filePath) {
@@ -784,6 +820,12 @@ async function saveAllProductImages(allImages, productId, orderId, baseUrl) {
         } else if (imageItem.type === 'attribute') {
             // Es una imagen de atributo (base64 convertida) - esta sí hay que guardarla manualmente
             const image = imageItem.image;
+            
+            // Validar que la imagen tiene buffer
+            if (!image.buffer) {
+                console.error('Error: imagen de atributo no tiene buffer:', image);
+                continue;
+            }
             
             const timestamp = Date.now();
             const extension = image.filename.split('.').pop();
