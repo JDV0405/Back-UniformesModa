@@ -80,6 +80,7 @@ const authMiddleware = require('../middlewares/auth.middleware.js');
  *         description: Error interno del servidor
  */
 router.post('/login', UserController.login);
+router.post('/refresh-token', UserController.refreshToken);
 
 // Middleware de autenticación para rutas protegidas
 router.use(authMiddleware);

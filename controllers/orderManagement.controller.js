@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'uniformes_moda_secret_key';
 const REFRESH_SECRET = process.env.REFRESH_SECRET || 'uniformes_moda_refresh_secret';
-const ACCESS_TOKEN_EXPIRES = '30m'; 
+const ACCESS_TOKEN_EXPIRES = '20m'; 
 const REFRESH_TOKEN_EXPIRES = '7d';
 
 const UserController = {
