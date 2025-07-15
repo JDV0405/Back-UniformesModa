@@ -626,46 +626,6 @@ router.post('/advance-from-making', advanceOrderController.advanceProductsFromCo
 
 /**
  * @swagger
- * /api/advance/limpiar-procesos-vacios/{idOrden}:
- *   delete:
- *     summary: Limpia procesos vacíos de una orden
- *     description: Elimina registros de detalle_proceso que no tienen productos asociados
- *     tags: [Seguimiento de Órdenes]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: idOrden
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID de la orden a limpiar
- *     responses:
- *       200:
- *         description: Procesos vacíos eliminados exitosamente
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     processesDeleted:
- *                       type: integer
- *                 message:
- *                   type: string
- *       400:
- *         description: Error de validación
- *       500:
- *         description: Error interno del servidor
- */
-router.delete('/limpiar-procesos-vacios/:idOrden', advanceOrderController.cleanEmptyProcesses);
-
-/**
- * @swagger
  * /api/advance/orden/{idOrden}/facturas:
  *   get:
  *     summary: Obtiene las facturas de una orden específica
@@ -724,60 +684,6 @@ router.delete('/limpiar-procesos-vacios/:idOrden', advanceOrderController.cleanE
  *         description: Error del servidor
  */
 router.get('/orden/:idOrden/facturas', advanceOrderController.getOrderFacturas);
-
-/**
- * @swagger
- * /api/advance/historial/empleados/{idOrden}:
- *   get:
- *     summary: Obtiene el historial de empleados que han participado en una orden
- *     description: Retorna todos los empleados que han intervenido en los diferentes procesos de una orden específica
- *     tags: [Auditoría y Historial]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: idOrden
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID de la orden a consultar
- *     responses:
- *       200:
- *         description: Historial de empleados de la orden
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id_historial:
- *                         type: integer
- *                       cedula_empleado:
- *                         type: string
- *                       nombre_completo:
- *                         type: string
- *                       nombre_proceso:
- *                         type: string
- *                       fecha_participacion:
- *                         type: string
- *                         format: date-time
- *                       observaciones:
- *                         type: string
- *                 message:
- *                   type: string
- *       400:
- *         description: ID de orden requerido
- *       500:
- *         description: Error del servidor
- */
-router.get('/historial/empleados/:idOrden', advanceOrderController.getOrderEmployeeHistory);
 
 /**
  * @swagger

@@ -115,50 +115,9 @@ const getEmployeesByRoleController = async (req, res) => {
   }
 };
 
-const debugDatabaseController = async (req, res) => {
-  try {
-    const { debugDatabaseData } = require('../models/getProductsAndAttributes.models');
-    
-    // Ejecutar debugging
-    await debugDatabaseData();
-    
-    // También obtener los datos para la respuesta
-    const empleados = await pool.query(`
-      SELECT e.cedula, e.nombre, e.apellidos, e.activo,
-             COALESCE(
-               ARRAY_AGG(r.nombre_rol) FILTER (WHERE r.nombre_rol IS NOT NULL),
-               ARRAY[]::VARCHAR[]
-             ) as roles
-      FROM empleado e
-      LEFT JOIN empleado_rol er ON e.cedula = er.cedula_empleado
-      LEFT JOIN rol r ON er.id_rol = r.id_rol AND r.activo = true
-      WHERE e.activo = true
-      GROUP BY e.cedula, e.nombre, e.apellidos, e.activo
-      ORDER BY e.nombre, e.apellidos
-    `);
-
-    return res.status(200).json({
-      success: true,
-      message: 'Debug ejecutado - revisa la consola del servidor',
-      data: {
-        empleados: empleados.rows,
-        total_empleados: empleados.rows.length
-      }
-    });
-  } catch (error) {
-    console.error('Error in debugDatabaseController:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Error en debugging',
-      error: error.message 
-    });
-  }
-};
-
 module.exports = {
   getProductsInfoByCategory,
   getCitiesByDepartmentController,
   getAssesorEmployeeController,
   getEmployeesByRoleController,
-  debugDatabaseController
 };

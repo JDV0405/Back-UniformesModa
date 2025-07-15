@@ -5,7 +5,6 @@ const {
   getCitiesByDepartmentController,
   getAssesorEmployeeController,
   getEmployeesByRoleController,
-  debugDatabaseController
 } = require('../controllers/getProductsAndAttributes.controller');
 
 /**
@@ -133,38 +132,6 @@ router.get('/department/:departmentId/cities', getCitiesByDepartmentController);
  *         description: Error interno del servidor
  */
 router.get('/assesorEmployee', getAssesorEmployeeController);
-
-/**
- * @swagger
- * /debug-database:
- *   get:
- *     summary: Ejecuta debugging de la base de datos para verificar datos
- *     tags: [Debug]
- *     responses:
- *       200:
- *         description: Debug ejecutado correctamente
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *                 data:
- *                   type: object
- *                   properties:
- *                     empleados:
- *                       type: array
- *                       items:
- *                         type: object
- *                     total_empleados:
- *                       type: integer
- *       500:
- *         description: Error en debugging
- */
-router.get('/debug-database', debugDatabaseController);
 
 /**
  * @swagger

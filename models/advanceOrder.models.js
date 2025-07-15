@@ -1271,27 +1271,6 @@ class AdvanceOrderModel {
     }
   }
 
-  // Función para limpiar procesos vacíos (sin productos)
-  async cleanEmptyProcesses(idOrden) {
-    try {
-      const query = `
-        DELETE FROM detalle_proceso 
-        WHERE id_orden = $1 
-        AND estado = 'En Proceso'
-        AND id_detalle_proceso NOT IN (
-          SELECT DISTINCT id_detalle_proceso 
-          FROM producto_proceso 
-          WHERE id_detalle_proceso IS NOT NULL
-        )
-      `;
-      
-      const result = await db.query(query, [idOrden]);
-      return result.rowCount; 
-    } catch (error) {
-      throw new Error(`Error al limpiar procesos vacíos: ${error.message}`);
-    }
-  }
-
   // Obtener facturas de una orden específica
   async getOrderFacturas(idOrden) {
     try {
@@ -1316,75 +1295,6 @@ class AdvanceOrderModel {
       return result.rows;
     } catch (error) {
       throw new Error(`Error al obtener facturas de la orden: ${error.message}`);
-    }
-  }
-
-  // Obtener el historial de empleados que han participado en una orden
-  async getOrderEmployeeHistory(idOrden) {
-    try {
-      const query = `
-        SELECT 
-          hep.id_historial,
-          hep.cedula_empleado,
-          e.nombre || ' ' || e.apellidos as nombre_completo,
-          e.telefono,
-          ep.nombre as nombre_proceso,
-          ep.id_proceso,
-          hep.fecha_participacion,
-          hep.observaciones,
-          hep.productos_avanzados,
-          hep.cantidad_total_avanzada,
-          dp.fecha_inicio_proceso,
-          dp.fecha_final_proceso,
-          dp.estado as estado_proceso,
-          -- Información de la orden
-          op.id_cliente,
-          c.nombre as nombre_cliente,
-          op.fecha_aproximada,
-          op.prioridad_orden,
-          -- Productos que se avanzaron en este proceso
-          COALESCE(
-            (SELECT json_agg(
-              json_build_object(
-                'id_detalle', dpo.id_detalle,
-                'id_producto', dpo.id_producto,
-                'nombre_producto', p.nombre_producto,
-                'cantidad_total_producto', dpo.cantidad,
-                'atributos_usuario', dpo.atributosUsuario,
-                'observacion_producto', dpo.observacion
-              )
-            )
-            FROM detalle_producto_orden dpo
-            JOIN producto p ON dpo.id_producto = p.id_producto
-            WHERE dpo.id_orden = dp.id_orden
-            ), '[]'::json
-          ) as productos_orden
-        FROM historial_empleado_proceso hep
-        JOIN detalle_proceso dp ON hep.id_detalle_proceso = dp.id_detalle_proceso
-        JOIN empleado e ON hep.cedula_empleado = e.cedula
-        JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
-        JOIN orden_produccion op ON dp.id_orden = op.id_orden
-        JOIN cliente c ON op.id_cliente = c.id_cliente
-        WHERE dp.id_orden = $1
-        AND hep.observaciones LIKE '%avanza productos%'
-        ORDER BY hep.fecha_participacion
-      `;
-      
-      const result = await db.query(query, [idOrden]);
-      
-      // Procesar los resultados para incluir información más limpia
-      const historialProcesado = result.rows.map(row => ({
-        ...row,
-        productos_avanzados: row.productos_avanzados || [],
-        cantidad_total_avanzada: row.cantidad_total_avanzada || 0,
-        resumen_avance: row.productos_avanzados ? 
-          `Avanzó ${row.cantidad_total_avanzada} unidades de ${row.productos_avanzados.length} producto(s)` : 
-          'Sin detalles de cantidad'
-      }));
-      
-      return historialProcesado;
-    } catch (error) {
-      throw new Error(`Error al obtener historial de empleados: ${error.message}`);
     }
   }
 

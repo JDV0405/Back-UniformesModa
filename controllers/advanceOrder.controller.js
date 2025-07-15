@@ -522,33 +522,6 @@ class AdvanceOrderController {
     }
   }
 
-  // Limpiar procesos vacíos de una orden
-  async cleanEmptyProcesses(req, res) {
-    try {
-      const { idOrden } = req.params;
-      
-      if (!idOrden) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Se requiere el ID de la orden' 
-        });
-      }
-      
-      const processesDeleted = await AdvanceOrderModel.cleanEmptyProcesses(idOrden);
-      
-      return res.status(200).json({
-        success: true,
-        data: { processesDeleted },
-        message: `Se eliminaron ${processesDeleted} procesos vacíos`
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: `Error al limpiar procesos vacíos: ${error.message}`
-      });
-    }
-  }
-
   // Obtener facturas de una orden específica
   async getOrderFacturas(req, res) {
     try {
@@ -571,32 +544,6 @@ class AdvanceOrderController {
       return res.status(500).json({
         success: false,
         message: `Error al obtener facturas de la orden: ${error.message}`
-      });
-    }
-  }
-
-  // Obtener historial de empleados de una orden
-  async getOrderEmployeeHistory(req, res) {
-    try {
-      const { idOrden } = req.params;
-      
-      if (!idOrden) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Se requiere el ID de la orden' 
-        });
-      }
-      
-      const historial = await AdvanceOrderModel.getOrderEmployeeHistory(idOrden);
-      return res.status(200).json({
-        success: true,
-        data: historial,
-        message: 'Historial de empleados obtenido correctamente'
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: `Error al obtener historial de empleados: ${error.message}`
       });
     }
   }

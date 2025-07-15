@@ -37,7 +37,7 @@ const assessmentController = require('../controllers/assessment.controller.js');
  *       500:
  *         description: Error del servidor
  */
-router.post('/assessment', ValoracionController.crearValoracion);
+router.post('/assessment', assessmentController.crearValoracion);
 
 /**
  * @swagger
@@ -51,6 +51,6 @@ router.post('/assessment', ValoracionController.crearValoracion);
  *       500:
  *         description: Error del servidor
  */
-router.get('/allAssessment', ValoracionController.obtenerTodasValoraciones);
+router.get('/allAssessment', assessmentController.obtenerTodasValoraciones);
 
 module.exports = router;
