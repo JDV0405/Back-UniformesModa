@@ -26,7 +26,7 @@ app.use(cors({
 app.use('/images', express.static(path.join(__dirname, 'Uniformes_Imagenes')));
 
 // Servir archivos estáticos de facturas desde el escritorio
-app.use('/facturas', express.static('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\facturas'));
+app.use('/facturas', express.static('C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\facturas'));
 
 // Servir archivos estáticos de productos desde el escritorio
 app.use('/productos', express.static('C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\productos'));
