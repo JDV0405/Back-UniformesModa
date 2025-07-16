@@ -18,15 +18,176 @@ const updateOrderPriority = async (idOrden, nuevaPrioridad) => {
 
 const getOrderById = async (idOrden) => {
     const query = `
-        SELECT id_orden, prioridad_orden, id_cliente, fecha_aproximada
-        FROM orden_produccion 
-        WHERE id_orden = $1 AND activo = true
+        SELECT 
+            op.id_orden, 
+            op.prioridad_orden, 
+            op.id_cliente, 
+            op.fecha_aproximada,
+            dpo.id_detalle,
+            dpo.id_producto,
+            dpo.atributosUsuario,
+            p.nombre_producto,
+            p.descripcion as descripcion_producto
+        FROM orden_produccion op
+        LEFT JOIN detalle_producto_orden dpo ON op.id_orden = dpo.id_orden
+        LEFT JOIN producto p ON dpo.id_producto = p.id_producto
+        WHERE op.id_orden = $1 AND op.activo = true
     `;
     
     try {
         const result = await pool.query(query, [idOrden]);
-        return result.rows[0];
+        
+        if (result.rows.length === 0) {
+            return null;
+        }
+        
+        // Si hay productos asociados, estructurar la respuesta
+        if (result.rows[0].id_detalle) {
+            const orden = {
+                id_orden: result.rows[0].id_orden,
+                prioridad_orden: result.rows[0].prioridad_orden,
+                id_cliente: result.rows[0].id_cliente,
+                fecha_aproximada: result.rows[0].fecha_aproximada,
+                productos: result.rows.map(row => ({
+                    id_detalle: row.id_detalle,
+                    id_producto: row.id_producto,
+                    nombre_producto: row.nombre_producto,
+                    descripcion_producto: row.descripcion_producto,
+                    atributosUsuario: row.atributosUsuario
+                }))
+            };
+            return orden;
+        } else {
+            // Si no hay productos, devolver solo la información de la orden
+            return {
+                id_orden: result.rows[0].id_orden,
+                prioridad_orden: result.rows[0].prioridad_orden,
+                id_cliente: result.rows[0].id_cliente,
+                fecha_aproximada: result.rows[0].fecha_aproximada,
+                productos: []
+            };
+        }
     } catch (error) {
+        throw error;
+    }
+};
+
+const obtenerProductosOrdenConEstadoCortado = async (idOrden, opciones = {}) => {
+    const { 
+        mostrarSoloMasAvanzado = false, 
+        agruparPorProducto = false,
+        filtrarPorProceso = null,
+        mostrarTodos = false
+    } = opciones;
+
+    let query = `
+        SELECT 
+            pp.id_producto_proceso,
+            pp.cortado,
+            pp.cantidad,
+            pp.cantidad_cortada,
+            dpo.id_detalle as id_detalle_producto,
+            dpo.id_producto,
+            dpo.atributosUsuario,
+            p.nombre_producto,
+            p.descripcion as descripcion_producto,
+            ep.nombre as nombre_proceso,
+            ep.id_proceso,
+            conf.nombre as nombre_confeccionista,
+            pp.fecha_registro,
+            CASE 
+                WHEN pp.cantidad_cortada = 0 THEN 'Sin cortar'
+                WHEN pp.cantidad_cortada < pp.cantidad THEN 'Parcialmente cortado'
+                WHEN pp.cantidad_cortada >= pp.cantidad THEN 'Completamente cortado'
+            END as estado_cortado,
+            (pp.cantidad - COALESCE(pp.cantidad_cortada, 0)) as cantidad_pendiente
+        FROM detalle_producto_orden dpo
+        JOIN producto p ON dpo.id_producto = p.id_producto
+        LEFT JOIN producto_proceso pp ON dpo.id_detalle = pp.id_detalle_producto
+        LEFT JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+        LEFT JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+        LEFT JOIN confeccionista conf ON pp.id_confeccionista = conf.id_confeccionista
+        WHERE dpo.id_orden = $1
+          AND pp.cantidad > 0
+    `;
+
+    const params = [idOrden];
+
+    // Por defecto, mostrar solo productos en proceso de "Cortes" (id_proceso = 3)
+    if (!mostrarTodos && !filtrarPorProceso) {
+        query += ' AND ep.id_proceso = 3';
+    }
+
+    if (filtrarPorProceso) {
+        query += ' AND ep.nombre = $2';
+        params.push(filtrarPorProceso);
+    }
+
+    query += ' ORDER BY p.nombre_producto, ep.id_proceso DESC, pp.fecha_registro DESC';
+    
+    try {
+        const result = await pool.query(query, params);
+        let productos = result.rows;
+
+        if (mostrarSoloMasAvanzado) {
+            const productosMap = new Map();
+            
+            productos.forEach(producto => {
+                const key = `${producto.id_producto}_${JSON.stringify(producto.atributosUsuario)}`;
+                if (!productosMap.has(key)) {
+                    productosMap.set(key, producto);
+                } else {
+                    const existing = productosMap.get(key);
+                    if (producto.id_proceso > existing.id_proceso) {
+                        productosMap.set(key, producto);
+                    }
+                }
+            });
+            
+            productos = Array.from(productosMap.values());
+        }
+
+        if (agruparPorProducto) {
+            const gruposProducto = {};
+            
+            productos.forEach(producto => {
+                const key = `${producto.id_producto}_${JSON.stringify(producto.atributosUsuario)}`;
+                if (!gruposProducto[key]) {
+                    gruposProducto[key] = {
+                        id_producto: producto.id_producto,
+                        nombre_producto: producto.nombre_producto,
+                        descripcion_producto: producto.descripcion_producto,
+                        atributosUsuario: producto.atributosUsuario,
+                        id_detalle_producto: producto.id_detalle_producto,
+                        procesos: [],
+                        cantidad_total_original: 0,
+                        cantidad_total_actual: 0,
+                        cantidad_total_cortada: 0
+                    };
+                }
+                
+                gruposProducto[key].procesos.push({
+                    id_producto_proceso: producto.id_producto_proceso,
+                    nombre_proceso: producto.nombre_proceso,
+                    id_proceso: producto.id_proceso,
+                    cantidad: producto.cantidad,
+                    cantidad_cortada: producto.cantidad_cortada,
+                    cantidad_pendiente: producto.cantidad_pendiente,
+                    estado_cortado: producto.estado_cortado,
+                    nombre_confeccionista: producto.nombre_confeccionista,
+                    fecha_registro: producto.fecha_registro
+                });
+                
+                gruposProducto[key].cantidad_total_actual += producto.cantidad;
+                gruposProducto[key].cantidad_total_cortada += producto.cantidad_cortada || 0;
+            });
+            
+            productos = Object.values(gruposProducto);
+        }
+
+        return productos;
+    } catch (error) {
+        console.error('Error en obtenerProductosOrdenConEstadoCortado:', error);
         throw error;
     }
 };
@@ -131,130 +292,6 @@ const obtenerProductoProcesoPorId = async (idProductoProceso) => {
         const result = await pool.query(query, [idProductoProceso]);
         return result.rows[0];
     } catch (error) {
-        throw error;
-    }
-};
-
-// Función para obtener todos los productos de una orden con su estado de cortado
-const obtenerProductosOrdenConEstadoCortado = async (idOrden, opciones = {}) => {
-    const { 
-        mostrarSoloMasAvanzado = false, 
-        agruparPorProducto = false,
-        filtrarPorProceso = null,
-        mostrarTodos = false  // Nueva opción para mostrar todos los procesos
-    } = opciones;
-
-    let query = `
-        SELECT 
-            pp.id_producto_proceso,
-            pp.cortado,
-            pp.cantidad,
-            pp.cantidad_cortada,
-            dpo.id_detalle as id_detalle_producto,
-            dpo.id_producto,
-            p.nombre_producto,
-            p.descripcion as descripcion_producto,
-            ep.nombre as nombre_proceso,
-            ep.id_proceso,
-            conf.nombre as nombre_confeccionista,
-            pp.fecha_registro,
-            CASE 
-                WHEN pp.cantidad_cortada = 0 THEN 'Sin cortar'
-                WHEN pp.cantidad_cortada < pp.cantidad THEN 'Parcialmente cortado'
-                WHEN pp.cantidad_cortada >= pp.cantidad THEN 'Completamente cortado'
-            END as estado_cortado,
-            (pp.cantidad - COALESCE(pp.cantidad_cortada, 0)) as cantidad_pendiente
-        FROM detalle_producto_orden dpo
-        JOIN producto p ON dpo.id_producto = p.id_producto
-        LEFT JOIN producto_proceso pp ON dpo.id_detalle = pp.id_detalle_producto
-        LEFT JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
-        LEFT JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
-        LEFT JOIN confeccionista conf ON pp.id_confeccionista = conf.id_confeccionista
-        WHERE dpo.id_orden = $1
-          AND pp.cantidad > 0
-    `;
-
-    const params = [idOrden];
-
-    // Por defecto, mostrar solo productos en proceso de "Cortes" (id_proceso = 3)
-    // a menos que se especifique mostrarTodos o un filtro específico
-    if (!mostrarTodos && !filtrarPorProceso) {
-        query += ' AND ep.id_proceso = 3';
-    }
-
-    // Filtrar por proceso específico si se proporciona
-    if (filtrarPorProceso) {
-        query += ' AND ep.nombre = $2';
-        params.push(filtrarPorProceso);
-    }
-
-    query += ' ORDER BY p.nombre_producto, ep.id_proceso DESC, pp.fecha_registro DESC';
-    
-    try {
-        const result = await pool.query(query, params);
-        let productos = result.rows;
-
-        // Filtrar duplicados y mostrar solo el proceso más avanzado por producto
-        if (mostrarSoloMasAvanzado) {
-            const productosMap = new Map();
-            
-            productos.forEach(producto => {
-                const key = `${producto.id_producto}`;
-                if (!productosMap.has(key)) {
-                    productosMap.set(key, producto);
-                } else {
-                    // Mantener el que tenga mayor id_proceso (más avanzado)
-                    const existing = productosMap.get(key);
-                    if (producto.id_proceso > existing.id_proceso) {
-                        productosMap.set(key, producto);
-                    }
-                }
-            });
-            
-            productos = Array.from(productosMap.values());
-        }
-
-        // Agrupar por producto con resumen de procesos
-        if (agruparPorProducto) {
-            const gruposProducto = {};
-            
-            productos.forEach(producto => {
-                const key = `${producto.id_producto}`;
-                if (!gruposProducto[key]) {
-                    gruposProducto[key] = {
-                        id_producto: producto.id_producto,
-                        nombre_producto: producto.nombre_producto,
-                        descripcion_producto: producto.descripcion_producto,
-                        id_detalle_producto: producto.id_detalle_producto,
-                        procesos: [],
-                        cantidad_total_original: 0,
-                        cantidad_total_actual: 0,
-                        cantidad_total_cortada: 0
-                    };
-                }
-                
-                gruposProducto[key].procesos.push({
-                    id_producto_proceso: producto.id_producto_proceso,
-                    nombre_proceso: producto.nombre_proceso,
-                    id_proceso: producto.id_proceso,
-                    cantidad: producto.cantidad,
-                    cantidad_cortada: producto.cantidad_cortada,
-                    cantidad_pendiente: producto.cantidad_pendiente,
-                    estado_cortado: producto.estado_cortado,
-                    nombre_confeccionista: producto.nombre_confeccionista,
-                    fecha_registro: producto.fecha_registro
-                });
-                
-                gruposProducto[key].cantidad_total_actual += producto.cantidad;
-                gruposProducto[key].cantidad_total_cortada += producto.cantidad_cortada || 0;
-            });
-            
-            productos = Object.values(gruposProducto);
-        }
-
-        return productos;
-    } catch (error) {
-        console.error('Error en obtenerProductosOrdenConEstadoCortado:', error);
         throw error;
     }
 };
