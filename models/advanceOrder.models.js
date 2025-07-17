@@ -812,6 +812,34 @@ class AdvanceOrderModel {
     }
   }
 
+  async cleanEmptyProcesses(idOrden) {
+    try {
+      // Eliminar registros de producto_proceso que tienen cantidad 0
+      await db.query(
+        `DELETE FROM producto_proceso 
+         WHERE cantidad = 0 OR cantidad IS NULL`
+      );
+      
+      // Eliminar detalle_proceso que no tienen productos asociados y están en estado 'En Proceso'
+      await db.query(
+        `DELETE FROM detalle_proceso dp
+         WHERE dp.id_orden = $1 
+         AND dp.estado = 'En Proceso'
+         AND NOT EXISTS (
+           SELECT 1 FROM producto_proceso pp 
+           WHERE pp.id_detalle_proceso = dp.id_detalle_proceso
+         )`,
+        [idOrden]
+      );
+      
+      return true;
+    } catch (error) {
+      console.error('Error al limpiar procesos vacíos:', error);
+      // No lanzar error para no interrumpir el flujo principal
+      return false;
+    }
+  }
+
   // Obtener órdenes por proceso
   async getOrdersByProcess(idProceso) {
     try {
