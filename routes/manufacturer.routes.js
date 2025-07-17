@@ -171,7 +171,7 @@ router.post('/createManufacturer', ConfeccionistaController.createConfeccionista
  *       500:
  *         description: Error del servidor
  */
-router.put('updateManufacturer/:id', ConfeccionistaController.updateConfeccionista);
+router.put('/updateManufacturer/:id', ConfeccionistaController.updateConfeccionista);
 
 /**
  * @swagger
@@ -194,6 +194,6 @@ router.put('updateManufacturer/:id', ConfeccionistaController.updateConfeccionis
  *       500:
  *         description: Error del servidor
  */
-router.delete('deleteManufacturer/:id', ConfeccionistaController.deleteConfeccionista);
+router.delete('/deleteManufacturer/:id', ConfeccionistaController.deleteConfeccionista);
 
 module.exports = router;
