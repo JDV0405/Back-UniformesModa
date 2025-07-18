@@ -10,11 +10,11 @@ const unifiedStorage = multer.diskStorage({
         let uploadPath;
         
         if (file.fieldname === 'comprobanteFile') {
-            uploadPath = 'C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\comprobantes';
+            uploadPath = 'C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\comprobantes';
         } else if (file.fieldname.startsWith('productImages')) {
-            uploadPath = 'C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\productos';
+            uploadPath = 'C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\productos';
         } else {
-            uploadPath = 'C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\otros';
+            uploadPath = 'C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\otros';
         }
         
         if (!fs.existsSync(uploadPath)) {

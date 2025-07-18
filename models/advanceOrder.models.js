@@ -802,7 +802,7 @@ class AdvanceOrderModel {
       }
       
       // Limpiar procesos vacíos que puedan haber quedado
-      await this.cleanEmptyProcesses(idOrdenInt);
+      // await this.cleanEmptyProcesses(idOrdenInt);
       
       await db.query('COMMIT');
       return true;
