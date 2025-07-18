@@ -10,6 +10,7 @@ const advanceOrderRoutes = require('./routes/advanceOrder.routes.js');
 const createElementsRoutes = require('./routes/createElements.routes.js');
 const valoracionesRoutes = require('./routes/assessment.routes.js');
 const confeccionistaRoutes = require('./routes/manufacturer.routes.js'); 
+const publicApisRoutes = require('./routes/publicApis.routes.js');
 const path = require('path');
 
 // Swagger
@@ -55,6 +56,7 @@ app.use('/api/production', advanceOrderRoutes);
 app.use('/api', createElementsRoutes);
 app.use('/api', valoracionesRoutes);
 app.use('/api', confeccionistaRoutes);
+app.use('/api/public', publicApisRoutes);
 
 
 // Use routes
