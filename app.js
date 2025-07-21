@@ -27,13 +27,13 @@ app.use(cors({
 app.use('/images', express.static(path.join(__dirname, 'Uniformes_Imagenes')));
 
 // Servir archivos estáticos de facturas desde el escritorio
-app.use('/facturas', express.static('C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\facturas'));
+app.use('/facturas', express.static('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\facturas'));
 
 // Servir archivos estáticos de productos desde el escritorio
-app.use('/productos', express.static('C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\productos'));
+app.use('/productos', express.static('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\productos'));
 
 // Servir archivos estáticos de comprobantes desde el escritorio
-app.use('/comprobantes', express.static('C:\\Users\\user\\Desktop\\Uniformes_Imagenes\\comprobantes'));
+app.use('/comprobantes', express.static('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\comprobantes'));
 
 // Aumentar límites para JSON y URL-encoded
 app.use(express.json({ limit: '50mb' }));
