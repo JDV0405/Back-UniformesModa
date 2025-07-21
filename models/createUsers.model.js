@@ -116,6 +116,47 @@ const obtenerTodosLosRoles = async () => {
   return result.rows;
 };
 
+// Obtener perfil completo de usuario por cédula
+const obtenerPerfilUsuario = async (cedula) => {
+  const result = await pool.query(`
+    SELECT 
+      e.cedula,
+      e.nombre,
+      e.apellidos,
+      e.activo as empleado_activo,
+      e.telefono,
+      u.id_usuario,
+      u.email,
+      u.activo as usuario_activo,
+      JSON_AGG(
+        CASE 
+          WHEN r.id_rol IS NOT NULL THEN 
+            JSON_BUILD_OBJECT(
+              'id_rol', r.id_rol,
+              'nombre_rol', r.nombre_rol,
+              'descripcion', r.descripcion,
+              'activo', r.activo
+            )
+          ELSE NULL
+        END
+      ) FILTER (WHERE r.id_rol IS NOT NULL) as roles
+    FROM empleado e
+    INNER JOIN usuario u ON e.cedula = u.cedula_empleado
+    LEFT JOIN empleado_rol er ON e.cedula = er.cedula_empleado
+    LEFT JOIN rol r ON er.id_rol = r.id_rol
+    WHERE e.cedula = $1
+    GROUP BY e.cedula, e.nombre, e.apellidos, e.activo, e.telefono, u.id_usuario, u.email, u.activo
+  `, [cedula]);
+  
+  return result.rows[0];
+};
+
+
+
+
+
+
+
 module.exports = {
   buscarEmpleadoPorCedula,
   buscarUsuarioPorEmail,
@@ -125,5 +166,6 @@ module.exports = {
   obtenerTodosLosUsuarios,
   actualizarUsuario,
   actualizarContrasenaUsuario,
-  obtenerTodosLosRoles
+  obtenerTodosLosRoles,
+  obtenerPerfilUsuario,
 };

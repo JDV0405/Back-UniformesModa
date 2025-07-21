@@ -106,9 +106,50 @@ const obtenerTodosLosRoles = async (req, res) => {
   }
 };
 
+// Obtener perfil completo de usuario
+const obtenerPerfilUsuario = async (req, res) => {
+  try {
+    const { cedula } = req.params;
+    
+    if (!cedula) {
+      return res.status(400).json({ mensaje: 'Cédula es requerida' });
+    }
+
+    const perfil = await usuarioModel.obtenerPerfilUsuario(cedula);
+    
+    if (!perfil) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    const estadisticas = await usuarioModel.obtenerEstadisticasUsuario(cedula);
+
+    const perfilCompleto = {
+      informacion_personal: perfil,
+      estadisticas: estadisticas,
+      ordenes_recientes: ordenesRecientes,
+      procesos_recientes: procesosRecientes,
+      historial_actividades: historialActividades
+    };
+
+    res.status(200).json({
+      success: true,
+      data: perfilCompleto
+    });
+  } catch (err) {
+    console.error('Error al obtener perfil de usuario:', err);
+    res.status(500).json({ mensaje: 'Error al obtener perfil de usuario' });
+  }
+};
+
+
+
+
+
+
 module.exports = {
   crearUsuario,
   obtenerTodosLosUsuarios,
   obtenerTodosLosRoles,
-  editarUsuario
+  editarUsuario,
+  obtenerPerfilUsuario,
 };
