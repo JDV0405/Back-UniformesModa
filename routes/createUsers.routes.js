@@ -259,4 +259,167 @@ router.get('/roles', usuarioController.obtenerTodosLosRoles);
  */
 router.get('/perfil/:cedula', usuarioController.obtenerPerfilUsuario);
 
+/**
+ * @swagger
+ * /api/estadisticas/{cedula}:
+ *   get:
+ *     summary: Obtiene las estadísticas de un usuario
+ *     tags: [Perfil de Usuario]
+ *     parameters:
+ *       - in: path
+ *         name: cedula
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Cédula del usuario
+ *     responses:
+ *       200:
+ *         description: Estadísticas del usuario obtenidas exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     total_ordenes_gestionadas:
+ *                       type: integer
+ *                     ordenes_activas:
+ *                       type: integer
+ *                     total_productos_gestionados:
+ *                       type: integer
+ *                     cantidad_total_productos:
+ *                       type: integer
+ *                     procesos_participados:
+ *                       type: integer
+ *                     procesos_completados:
+ *                       type: integer
+ *       400:
+ *         description: Cédula requerida
+ *       500:
+ *         description: Error interno del servidor
+ */
+router.get('/estadisticas/:cedula', usuarioController.obtenerEstadisticasUsuario);
+
+/**
+ * @swagger
+ * /api/ordenes-recientes/{cedula}:
+ *   get:
+ *     summary: Obtiene las órdenes recientes gestionadas por un usuario
+ *     tags: [Perfil de Usuario]
+ *     parameters:
+ *       - in: path
+ *         name: cedula
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Cédula del usuario
+ *       - in: query
+ *         name: limite
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Límite de órdenes a retornar
+ *     responses:
+ *       200:
+ *         description: Órdenes recientes obtenidas exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id_orden:
+ *                         type: integer
+ *                       fecha_aproximada:
+ *                         type: string
+ *                         format: date
+ *                       tipo_pago:
+ *                         type: string
+ *                       prioridad_orden:
+ *                         type: string
+ *                       cliente_nombre:
+ *                         type: string
+ *                       ciudad:
+ *                         type: string
+ *                       departamento:
+ *                         type: string
+ *                       total_productos:
+ *                         type: integer
+ *                       cantidad_total:
+ *                         type: integer
+ *       400:
+ *         description: Cédula requerida
+ *       500:
+ *         description: Error interno del servidor
+ */
+router.get('/ordenes-recientes/:cedula', usuarioController.obtenerOrdenesRecientesUsuario);
+
+/**
+ * @swagger
+ * /api/historial-actividades/{cedula}:
+ *   get:
+ *     summary: Obtiene el historial de actividades de un usuario
+ *     tags: [Perfil de Usuario]
+ *     parameters:
+ *       - in: path
+ *         name: cedula
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Cédula del usuario
+ *       - in: query
+ *         name: limite
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Límite de actividades a retornar
+ *     responses:
+ *       200:
+ *         description: Historial de actividades obtenido exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id_historial:
+ *                         type: integer
+ *                       fecha_participacion:
+ *                         type: string
+ *                         format: date-time
+ *                       observaciones:
+ *                         type: string
+ *                       accion:
+ *                         type: string
+ *                       cantidad_total_avanzada:
+ *                         type: integer
+ *                       nombre_proceso:
+ *                         type: string
+ *                       id_orden:
+ *                         type: integer
+ *                       cliente_nombre:
+ *                         type: string
+ *       400:
+ *         description: Cédula requerida
+ *       500:
+ *         description: Error interno del servidor
+ */
+router.get('/historial-actividades/:cedula', usuarioController.obtenerHistorialActividadesUsuario);
+
 module.exports = router;
