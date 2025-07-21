@@ -176,4 +176,87 @@ router.put('/editUsers/:cedula', usuarioController.editarUsuario);
 
 router.get('/roles', usuarioController.obtenerTodosLosRoles);
 
+/**
+ * @swagger
+ * /api/perfil/{cedula}:
+ *   get:
+ *     summary: Obtiene el perfil completo de un usuario
+ *     tags: [Perfil de Usuario]
+ *     parameters:
+ *       - in: path
+ *         name: cedula
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Cédula del usuario
+ *     responses:
+ *       200:
+ *         description: Perfil del usuario obtenido exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     informacion_personal:
+ *                       type: object
+ *                       properties:
+ *                         cedula:
+ *                           type: string
+ *                         nombre:
+ *                           type: string
+ *                         apellidos:
+ *                           type: string
+ *                         empleado_activo:
+ *                           type: boolean
+ *                         telefono:
+ *                           type: string
+ *                         email:
+ *                           type: string
+ *                         usuario_activo:
+ *                           type: boolean
+ *                         roles:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                     estadisticas:
+ *                       type: object
+ *                       properties:
+ *                         total_ordenes_gestionadas:
+ *                           type: integer
+ *                         ordenes_activas:
+ *                           type: integer
+ *                         total_productos_gestionados:
+ *                           type: integer
+ *                         cantidad_total_productos:
+ *                           type: integer
+ *                         procesos_participados:
+ *                           type: integer
+ *                         procesos_completados:
+ *                           type: integer
+ *                     ordenes_recientes:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     procesos_recientes:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     historial_actividades:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       400:
+ *         description: Cédula requerida
+ *       404:
+ *         description: Usuario no encontrado
+ *       500:
+ *         description: Error interno del servidor
+ */
+router.get('/perfil/:cedula', usuarioController.obtenerPerfilUsuario);
+
 module.exports = router;
