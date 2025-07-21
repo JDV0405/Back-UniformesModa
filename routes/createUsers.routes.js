@@ -422,4 +422,81 @@ router.get('/ordenes-recientes/:cedula', usuarioController.obtenerOrdenesRecient
  */
 router.get('/historial-actividades/:cedula', usuarioController.obtenerHistorialActividadesUsuario);
 
+/**
+ * @swagger
+ * /api/estadisticas-rol/{cedula}/{id_rol}:
+ *   get:
+ *     summary: Obtiene estadísticas específicas por rol de un usuario
+ *     tags: [Perfil de Usuario]
+ *     parameters:
+ *       - in: path
+ *         name: cedula
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Cédula del usuario
+ *       - in: path
+ *         name: id_rol
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del rol
+ *     responses:
+ *       200:
+ *         description: Estadísticas específicas por rol obtenidas exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   description: Estadísticas específicas que varían según el rol
+ *                   examples:
+ *                     Administrador:
+ *                       total_usuarios: 25
+ *                       usuarios_activos: 20
+ *                       ordenes_supervision: 150
+ *                       procesos_supervisados: 300
+ *                     Solicitudes:
+ *                       solicitudes_creadas: 45
+ *                       solicitudes_pendientes: 8
+ *                       solicitudes_aprobadas: 35
+ *                       solicitudes_rechazadas: 2
+ *                     Cortes:
+ *                       cortes_realizados: 120
+ *                       metros_cortados: 2500
+ *                       ordenes_corte_completadas: 95
+ *                       material_desperdiciado: 5.2
+ *                     Confección:
+ *                       prendas_confeccionadas: 350
+ *                       tiempo_promedio: 4.5
+ *                       calidad_promedio: 95.8
+ *                       reprocesos: 12
+ *                     Bordado:
+ *                       bordados_realizados: 180
+ *                       diseños_creados: 25
+ *                       tiempo_bordado: 145.5
+ *                       calidad_bordado: 98.2
+ *                     Facturación:
+ *                       facturas_generadas: 75
+ *                       ingresos_totales: 15000000
+ *                       pagos_procesados: 70
+ *                       facturas_pendientes: 5
+ *                     Entrega:
+ *                       entregas_realizadas: 68
+ *                       entregas_pendientes: 12
+ *                       kilometros_recorridos: 1250
+ *                       satisfaccion_cliente: 92.5
+ *       400:
+ *         description: Cédula e ID de rol requeridos
+ *       404:
+ *         description: Rol no encontrado
+ *       500:
+ *         description: Error interno del servidor
+ */
+router.get('/perfil/:cedula/estadisticas/:id_rol', usuarioController.obtenerEstadisticasEspecificasPorRol);
+
 module.exports = router;
