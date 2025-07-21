@@ -122,6 +122,9 @@ const obtenerPerfilUsuario = async (req, res) => {
     }
 
     const estadisticas = await usuarioModel.obtenerEstadisticasUsuario(cedula);
+    const ordenesRecientes = await usuarioModel.obtenerOrdenesRecientesUsuario(cedula, 5);
+    const procesosRecientes = await usuarioModel.obtenerProcesosRecientesUsuario(cedula, 5);
+    const historialActividades = await usuarioModel.obtenerHistorialActividadesUsuario(cedula, 10);
 
     const perfilCompleto = {
       informacion_personal: perfil,
@@ -141,10 +144,70 @@ const obtenerPerfilUsuario = async (req, res) => {
   }
 };
 
+// Obtener solo estadísticas del usuario
+const obtenerEstadisticasUsuario = async (req, res) => {
+  try {
+    const { cedula } = req.params;
+    
+    if (!cedula) {
+      return res.status(400).json({ mensaje: 'Cédula es requerida' });
+    }
 
+    const estadisticas = await usuarioModel.obtenerEstadisticasUsuario(cedula);
+    
+    res.status(200).json({
+      success: true,
+      data: estadisticas
+    });
+  } catch (err) {
+    console.error('Error al obtener estadísticas de usuario:', err);
+    res.status(500).json({ mensaje: 'Error al obtener estadísticas de usuario' });
+  }
+};
 
+// Obtener órdenes recientes del usuario
+const obtenerOrdenesRecientesUsuario = async (req, res) => {
+  try {
+    const { cedula } = req.params;
+    const { limite = 10 } = req.query;
+    
+    if (!cedula) {
+      return res.status(400).json({ mensaje: 'Cédula es requerida' });
+    }
 
+    const ordenes = await usuarioModel.obtenerOrdenesRecientesUsuario(cedula, limite);
+    
+    res.status(200).json({
+      success: true,
+      data: ordenes
+    });
+  } catch (err) {
+    console.error('Error al obtener órdenes recientes de usuario:', err);
+    res.status(500).json({ mensaje: 'Error al obtener órdenes recientes de usuario' });
+  }
+};
 
+// Obtener historial de actividades del usuario
+const obtenerHistorialActividadesUsuario = async (req, res) => {
+  try {
+    const { cedula } = req.params;
+    const { limite = 20 } = req.query;
+    
+    if (!cedula) {
+      return res.status(400).json({ mensaje: 'Cédula es requerida' });
+    }
+
+    const historial = await usuarioModel.obtenerHistorialActividadesUsuario(cedula, limite);
+    
+    res.status(200).json({
+      success: true,
+      data: historial
+    });
+  } catch (err) {
+    console.error('Error al obtener historial de actividades de usuario:', err);
+    res.status(500).json({ mensaje: 'Error al obtener historial de actividades de usuario' });
+  }
+};
 
 module.exports = {
   crearUsuario,
@@ -152,4 +215,7 @@ module.exports = {
   obtenerTodosLosRoles,
   editarUsuario,
   obtenerPerfilUsuario,
+  obtenerEstadisticasUsuario,
+  obtenerOrdenesRecientesUsuario,
+  obtenerHistorialActividadesUsuario
 };

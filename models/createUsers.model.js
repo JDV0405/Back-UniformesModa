@@ -151,11 +151,112 @@ const obtenerPerfilUsuario = async (cedula) => {
   return result.rows[0];
 };
 
+// Obtener estadísticas del usuario (órdenes gestionadas)
+const obtenerEstadisticasUsuario = async (cedula) => {
+  const result = await pool.query(`
+    SELECT 
+      COUNT(DISTINCT op.id_orden) as total_ordenes_gestionadas,
+      COUNT(DISTINCT CASE WHEN op.activo = true THEN op.id_orden END) as ordenes_activas,
+      COUNT(DISTINCT dpo.id_detalle) as total_productos_gestionados,
+      COALESCE(SUM(dpo.cantidad), 0) as cantidad_total_productos,
+      COUNT(DISTINCT dp.id_detalle_proceso) as procesos_participados,
+      COUNT(DISTINCT CASE WHEN dp.estado = 'Completado' THEN dp.id_detalle_proceso END) as procesos_completados
+    FROM empleado e
+    LEFT JOIN orden_produccion op ON e.cedula = op.cedula_empleado_responsable
+    LEFT JOIN detalle_producto_orden dpo ON op.id_orden = dpo.id_orden
+    LEFT JOIN detalle_proceso dp ON e.cedula = dp.cedula_empleado
+    WHERE e.cedula = $1
+  `, [cedula]);
+  
+  return result.rows[0];
+};
 
+// Obtener órdenes recientes gestionadas por el usuario
+const obtenerOrdenesRecientesUsuario = async (cedula, limite = 5) => {
+  const result = await pool.query(`
+    SELECT 
+      op.id_orden,
+      op.fecha_aproximada,
+      op.tipo_pago,
+      op.prioridad_orden,
+      op.observaciones,
+      op.activo,
+      c.nombre as cliente_nombre,
+      c.tipo as cliente_tipo,
+      ci.ciudad,
+      dep.nombre as departamento,
+      COUNT(dpo.id_detalle) as total_productos,
+      SUM(dpo.cantidad) as cantidad_total
+    FROM orden_produccion op
+    INNER JOIN cliente c ON op.id_cliente = c.id_cliente
+    INNER JOIN direccion d ON op.id_direccion = d.id_direccion
+    INNER JOIN ciudad ci ON d.id_ciudad = ci.id_ciudad
+    INNER JOIN departamento dep ON ci.id_departamento = dep.id_departamento
+    LEFT JOIN detalle_producto_orden dpo ON op.id_orden = dpo.id_orden
+    WHERE op.cedula_empleado_responsable = $1
+    GROUP BY op.id_orden, op.fecha_aproximada, op.tipo_pago, op.prioridad_orden, 
+             op.observaciones, op.activo, c.nombre, c.tipo, ci.ciudad, dep.nombre
+    ORDER BY op.fecha_aproximada DESC
+    LIMIT $2
+  `, [cedula, limite]);
+  
+  return result.rows;
+};
 
+// Obtener procesos recientes en los que ha participado el usuario
+const obtenerProcesosRecientesUsuario = async (cedula, limite = 5) => {
+  const result = await pool.query(`
+    SELECT 
+      dp.id_detalle_proceso,
+      dp.fecha_inicio_proceso,
+      dp.fecha_final_proceso,
+      dp.observaciones,
+      dp.estado,
+      ep.nombre as nombre_proceso,
+      op.id_orden,
+      c.nombre as cliente_nombre,
+      COUNT(pp.id_producto_proceso) as productos_trabajados
+    FROM detalle_proceso dp
+    INNER JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+    INNER JOIN orden_produccion op ON dp.id_orden = op.id_orden
+    INNER JOIN cliente c ON op.id_cliente = c.id_cliente
+    LEFT JOIN producto_proceso pp ON dp.id_detalle_proceso = pp.id_detalle_proceso
+    WHERE dp.cedula_empleado = $1
+    GROUP BY dp.id_detalle_proceso, dp.fecha_inicio_proceso, dp.fecha_final_proceso, 
+             dp.observaciones, dp.estado, ep.nombre, op.id_orden, c.nombre
+    ORDER BY dp.fecha_inicio_proceso DESC
+    LIMIT $2
+  `, [cedula, limite]);
+  
+  return result.rows;
+};
 
-
-
+// Obtener historial de actividades del usuario
+const obtenerHistorialActividadesUsuario = async (cedula, limite = 10) => {
+  const result = await pool.query(`
+    SELECT 
+      hep.id_historial,
+      hep.fecha_participacion,
+      hep.observaciones,
+      hep.accion,
+      hep.cantidad_total_avanzada,
+      hep.datos_adicionales,
+      dp.id_detalle_proceso,
+      ep.nombre as nombre_proceso,
+      op.id_orden,
+      c.nombre as cliente_nombre
+    FROM historial_empleado_proceso hep
+    INNER JOIN detalle_proceso dp ON hep.id_detalle_proceso = dp.id_detalle_proceso
+    INNER JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+    INNER JOIN orden_produccion op ON dp.id_orden = op.id_orden
+    INNER JOIN cliente c ON op.id_cliente = c.id_cliente
+    WHERE hep.cedula_empleado = $1
+    ORDER BY hep.fecha_participacion DESC
+    LIMIT $2
+  `, [cedula, limite]);
+  
+  return result.rows;
+};
 
 module.exports = {
   buscarEmpleadoPorCedula,
@@ -168,4 +269,8 @@ module.exports = {
   actualizarContrasenaUsuario,
   obtenerTodosLosRoles,
   obtenerPerfilUsuario,
+  obtenerEstadisticasUsuario,
+  obtenerOrdenesRecientesUsuario,
+  obtenerProcesosRecientesUsuario,
+  obtenerHistorialActividadesUsuario
 };
