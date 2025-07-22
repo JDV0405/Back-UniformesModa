@@ -209,6 +209,27 @@ const obtenerHistorialActividadesUsuario = async (req, res) => {
   }
 };
 
+// Obtener estadísticas específicas por rol
+const obtenerEstadisticasEspecificasPorRol = async (req, res) => {
+  try {
+    const { cedula, id_rol } = req.params;
+    
+    if (!cedula || !id_rol) {
+      return res.status(400).json({ mensaje: 'Cédula e ID de rol son requeridos' });
+    }
+
+    const estadisticas = await usuarioModel.obtenerEstadisticasEspecificasPorRol(cedula, id_rol);
+    
+    res.status(200).json({
+      success: true,
+      data: estadisticas
+    });
+  } catch (err) {
+    console.error('Error al obtener estadísticas específicas por rol:', err);
+    res.status(500).json({ mensaje: err.message || 'Error al obtener estadísticas específicas por rol' });
+  }
+};
+
 module.exports = {
   crearUsuario,
   obtenerTodosLosUsuarios,
@@ -217,5 +238,6 @@ module.exports = {
   obtenerPerfilUsuario,
   obtenerEstadisticasUsuario,
   obtenerOrdenesRecientesUsuario,
-  obtenerHistorialActividadesUsuario
+  obtenerHistorialActividadesUsuario,
+  obtenerEstadisticasEspecificasPorRol
 };
