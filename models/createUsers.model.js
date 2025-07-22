@@ -120,14 +120,19 @@ const obtenerTodosLosRoles = async () => {
 const obtenerPerfilUsuario = async (cedula) => {
   const result = await pool.query(`
     SELECT 
+      -- Datos del empleado
       e.cedula,
       e.nombre,
       e.apellidos,
-      e.activo as empleado_activo,
       e.telefono,
+      e.activo as empleado_activo,
+      
+      -- Datos del usuario
       u.id_usuario,
       u.email,
       u.activo as usuario_activo,
+      
+      -- Roles asignados
       JSON_AGG(
         CASE 
           WHEN r.id_rol IS NOT NULL THEN 
@@ -139,13 +144,73 @@ const obtenerPerfilUsuario = async (cedula) => {
             )
           ELSE NULL
         END
-      ) FILTER (WHERE r.id_rol IS NOT NULL) as roles
+      ) FILTER (WHERE r.id_rol IS NOT NULL) as roles,
+      
+      -- Cantidad de procesos en los que ha participado
+      (
+        SELECT COUNT(DISTINCT dp.id_detalle_proceso) 
+        FROM detalle_proceso dp 
+        WHERE dp.cedula_empleado = e.cedula
+      ) as total_procesos_participados,
+      
+      -- Última participación en un proceso
+      (
+        SELECT JSON_BUILD_OBJECT(
+          'id_detalle_proceso', dp.id_detalle_proceso,
+          'fecha_inicio', dp.fecha_inicio_proceso,
+          'fecha_final', dp.fecha_final_proceso,
+          'estado', dp.estado,
+          'nombre_proceso', ep.nombre,
+          'id_orden', dp.id_orden
+        )
+        FROM detalle_proceso dp
+        INNER JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+        WHERE dp.cedula_empleado = e.cedula
+        ORDER BY dp.fecha_inicio_proceso DESC
+        LIMIT 1
+      ) as ultima_participacion_proceso,
+      
+      -- Cantidad de órdenes donde fue responsable
+      (
+        SELECT COUNT(*) 
+        FROM orden_produccion op 
+        WHERE op.cedula_empleado_responsable = e.cedula
+      ) as total_ordenes_responsable,
+      
+      -- Total de acciones registradas en el historial
+      (
+        SELECT COUNT(*) 
+        FROM historial_empleado_proceso hep 
+        WHERE hep.cedula_empleado = e.cedula
+      ) as total_acciones_historial,
+      
+      -- Última acción registrada
+      (
+        SELECT JSON_BUILD_OBJECT(
+          'id_historial', hep.id_historial,
+          'fecha_participacion', hep.fecha_participacion,
+          'accion', hep.accion,
+          'observaciones', hep.observaciones,
+          'cantidad_total_avanzada', hep.cantidad_total_avanzada,
+          'nombre_proceso', ep.nombre,
+          'id_orden', op.id_orden
+        )
+        FROM historial_empleado_proceso hep
+        INNER JOIN detalle_proceso dp ON hep.id_detalle_proceso = dp.id_detalle_proceso
+        INNER JOIN estado_proceso ep ON dp.id_proceso = ep.id_proceso
+        INNER JOIN orden_produccion op ON dp.id_orden = op.id_orden
+        WHERE hep.cedula_empleado = e.cedula
+        ORDER BY hep.fecha_participacion DESC
+        LIMIT 1
+      ) as ultima_accion_registrada
+      
     FROM empleado e
     INNER JOIN usuario u ON e.cedula = u.cedula_empleado
     LEFT JOIN empleado_rol er ON e.cedula = er.cedula_empleado
     LEFT JOIN rol r ON er.id_rol = r.id_rol
     WHERE e.cedula = $1
-    GROUP BY e.cedula, e.nombre, e.apellidos, e.activo, e.telefono, u.id_usuario, u.email, u.activo
+    GROUP BY e.cedula, e.nombre, e.apellidos, e.telefono, e.activo, 
+             u.id_usuario, u.email, u.activo
   `, [cedula]);
   
   return result.rows[0];

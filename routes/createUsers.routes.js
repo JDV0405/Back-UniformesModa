@@ -180,7 +180,7 @@ router.get('/roles', usuarioController.obtenerTodosLosRoles);
  * @swagger
  * /api/perfil/{cedula}:
  *   get:
- *     summary: Obtiene el perfil completo de un usuario
+ *     summary: Obtiene el perfil completo de un usuario con toda su información
  *     tags: [Perfil de Usuario]
  *     parameters:
  *       - in: path
@@ -202,54 +202,96 @@ router.get('/roles', usuarioController.obtenerTodosLosRoles);
  *                 data:
  *                   type: object
  *                   properties:
- *                     informacion_personal:
+ *                     datos_usuario:
+ *                       type: object
+ *                       properties:
+ *                         email:
+ *                           type: string
+ *                           description: Email del usuario
+ *                         estado_cuenta:
+ *                           type: string
+ *                           description: Estado de la cuenta (Activo/Inactivo)
+ *                     datos_empleado:
  *                       type: object
  *                       properties:
  *                         cedula:
  *                           type: string
+ *                           description: Cédula del empleado
  *                         nombre:
  *                           type: string
+ *                           description: Nombre del empleado
  *                         apellidos:
  *                           type: string
- *                         empleado_activo:
- *                           type: boolean
+ *                           description: Apellidos del empleado
  *                         telefono:
  *                           type: string
- *                         email:
+ *                           description: Teléfono del empleado
+ *                         estado:
  *                           type: string
- *                         usuario_activo:
- *                           type: boolean
- *                         roles:
- *                           type: array
- *                           items:
- *                             type: object
- *                     estadisticas:
+ *                           description: Estado del empleado (Activo/Inactivo)
+ *                     roles_asignados:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id_rol:
+ *                             type: integer
+ *                           nombre_rol:
+ *                             type: string
+ *                           descripcion:
+ *                             type: string
+ *                           activo:
+ *                             type: boolean
+ *                       description: Roles asignados al empleado (ej. Confección, Entrega, etc.)
+ *                     estadisticas_participacion:
  *                       type: object
  *                       properties:
- *                         total_ordenes_gestionadas:
+ *                         cantidad_procesos_participados:
  *                           type: integer
- *                         ordenes_activas:
+ *                           description: Cantidad de procesos en los que ha participado
+ *                         ultima_participacion_proceso:
+ *                           type: object
+ *                           description: Información de la última participación en un proceso
+ *                           properties:
+ *                             id_detalle_proceso:
+ *                               type: integer
+ *                             fecha_inicio:
+ *                               type: string
+ *                               format: date-time
+ *                             fecha_final:
+ *                               type: string
+ *                               format: date-time
+ *                             estado:
+ *                               type: string
+ *                             nombre_proceso:
+ *                               type: string
+ *                             id_orden:
+ *                               type: integer
+ *                         cantidad_ordenes_responsable:
  *                           type: integer
- *                         total_productos_gestionados:
+ *                           description: Cantidad de órdenes donde fue responsable
+ *                         total_acciones_historial:
  *                           type: integer
- *                         cantidad_total_productos:
- *                           type: integer
- *                         procesos_participados:
- *                           type: integer
- *                         procesos_completados:
- *                           type: integer
- *                     ordenes_recientes:
- *                       type: array
- *                       items:
- *                         type: object
- *                     procesos_recientes:
- *                       type: array
- *                       items:
- *                         type: object
- *                     historial_actividades:
- *                       type: array
- *                       items:
- *                         type: object
+ *                           description: Total de acciones registradas en el historial (bitácora)
+ *                         ultima_accion_registrada:
+ *                           type: object
+ *                           description: Información de la última acción registrada
+ *                           properties:
+ *                             id_historial:
+ *                               type: integer
+ *                             fecha_participacion:
+ *                               type: string
+ *                               format: date-time
+ *                             accion:
+ *                               type: string
+ *                             observaciones:
+ *                               type: string
+ *                             cantidad_total_avanzada:
+ *                               type: integer
+ *                             nombre_proceso:
+ *                               type: string
+ *                             id_orden:
+ *                               type: integer
  *       400:
  *         description: Cédula requerida
  *       404:
