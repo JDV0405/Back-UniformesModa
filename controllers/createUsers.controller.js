@@ -121,17 +121,34 @@ const obtenerPerfilUsuario = async (req, res) => {
       return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     }
 
-    const estadisticas = await usuarioModel.obtenerEstadisticasUsuario(cedula);
-    const ordenesRecientes = await usuarioModel.obtenerOrdenesRecientesUsuario(cedula, 5);
-    const procesosRecientes = await usuarioModel.obtenerProcesosRecientesUsuario(cedula, 5);
-    const historialActividades = await usuarioModel.obtenerHistorialActividadesUsuario(cedula, 10);
-
+    // Estructurar la respuesta con toda la información solicitada
     const perfilCompleto = {
-      informacion_personal: perfil,
-      estadisticas: estadisticas,
-      ordenes_recientes: ordenesRecientes,
-      procesos_recientes: procesosRecientes,
-      historial_actividades: historialActividades
+      // Datos del usuario
+      datos_usuario: {
+        email: perfil.email,
+        estado_cuenta: perfil.usuario_activo ? 'Activo' : 'Inactivo'
+      },
+      
+      // Datos del empleado
+      datos_empleado: {
+        cedula: perfil.cedula,
+        nombre: perfil.nombre,
+        apellidos: perfil.apellidos,
+        telefono: perfil.telefono,
+        estado: perfil.empleado_activo ? 'Activo' : 'Inactivo'
+      },
+      
+      // Roles asignados
+      roles_asignados: perfil.roles || [],
+      
+      // Estadísticas de participación
+      estadisticas_participacion: {
+        cantidad_procesos_participados: parseInt(perfil.total_procesos_participados) || 0,
+        ultima_participacion_proceso: perfil.ultima_participacion_proceso,
+        cantidad_ordenes_responsable: parseInt(perfil.total_ordenes_responsable) || 0,
+        total_acciones_historial: parseInt(perfil.total_acciones_historial) || 0,
+        ultima_accion_registrada: perfil.ultima_accion_registrada
+      }
     };
 
     res.status(200).json({
