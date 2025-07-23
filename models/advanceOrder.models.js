@@ -1,6 +1,15 @@
 const db = require('../database/db');
+const NodeCache = require('node-cache');
 
 class AdvanceOrderModel {
+  constructor() {
+    // Inicializar caché con TTL por defecto de 5 minutos
+    this.cache = new NodeCache({ 
+      stdTTL: 300, // 5 minutos
+      checkperiod: 60, // verificar cada minuto por expirados
+      maxKeys: 100 // máximo 100 llaves en caché
+    });
+  }
   // Verifica si un producto de una orden ya está en un proceso específico
   async isProductInProcess(idDetalleProducto, idProceso) {
     try {
@@ -84,9 +93,17 @@ class AdvanceOrderModel {
     }
   }
 
-  // Obtener todos los confeccionistas activos
+  // Obtener todos los confeccionistas activos con caché
   async getActiveConfeccionistas() {
     try {
+      // Implementar caché simple con TTL de 5 minutos
+      const cacheKey = 'active_confeccionistas';
+      const cacheData = this.cache?.get(cacheKey);
+      
+      if (cacheData) {
+        return cacheData;
+      }
+      
       const query = `
         SELECT id_confeccionista, cedula, nombre, telefono
         FROM confeccionista
@@ -95,6 +112,12 @@ class AdvanceOrderModel {
       `;
       
       const result = await db.query(query);
+      
+      // Guardar en caché por 5 minutos (300 segundos)
+      if (this.cache) {
+        this.cache.set(cacheKey, result.rows, 300);
+      }
+      
       return result.rows;
     } catch (error) {
       throw new Error(`Error al obtener confeccionistas: ${error.message}`);
@@ -424,6 +447,31 @@ class AdvanceOrderModel {
         }
       }
 
+      // 3. OPTIMIZACIÓN: Preparar consultas en batch para evitar N+1
+      const itemIds = itemsToAdvance.map(item => parseInt(item.idDetalle));
+      
+      // Una sola consulta para obtener todas las cantidades actuales
+      const cantidadesActualesQuery = `
+        SELECT pp.id_detalle_producto, pp.cantidad, pp.id_producto_proceso, pp.id_confeccionista,
+               dp.id_detalle_proceso, p.nombre_producto
+        FROM producto_proceso pp
+        JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+        JOIN detalle_producto_orden dpo ON pp.id_detalle_producto = dpo.id_detalle
+        JOIN producto p ON dpo.id_producto = p.id_producto
+        WHERE pp.id_detalle_producto = ANY($1::int[]) 
+        AND dp.id_orden = $2 AND dp.id_proceso = $3 AND dp.estado = 'En Proceso'
+      `;
+      
+      const cantidadesResult = await db.query(cantidadesActualesQuery, 
+        [itemIds, idOrdenInt, idProcesoActualInt]);
+      
+      // Crear mapa para acceso O(1)
+      const cantidadesMap = new Map();
+      cantidadesResult.rows.forEach(row => {
+        const key = `${row.id_detalle_producto}_${row.id_confeccionista || 'null'}`;
+        cantidadesMap.set(key, row);
+      });
+
       // 3. Procesar cada producto con lógica de múltiples destinos
       for (const item of itemsToAdvance) {
         
@@ -569,37 +617,21 @@ class AdvanceOrderModel {
             );
           }
         } else {          
-          // Obtener la cantidad actual en el proceso actual
-          let cantidadActualQuery;
+          // OPTIMIZACIÓN: Usar datos del mapa en lugar de consultas individuales
+          const mapKey = `${idDetalleInt}_${idConfeccionistaInt || 'null'}`;
+          const cantidadInfo = cantidadesMap.get(mapKey);
           
-          if (idConfeccionistaInt && idProcesoActualInt === 4) {
-            // Si estamos en confección y se especifica confeccionista
-            cantidadActualQuery = await db.query(
-              `SELECT pp.cantidad
-              FROM producto_proceso pp
-              JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
-              WHERE pp.id_detalle_producto = $1 AND dp.id_orden = $2 AND dp.id_proceso = $3 
-              AND dp.estado = 'En Proceso' AND pp.id_confeccionista = $4`,
-              [idDetalleInt, idOrdenInt, idProcesoActualInt, idConfeccionistaInt]
-            );
-          } else {
-            cantidadActualQuery = await db.query(
-              `SELECT pp.cantidad
-              FROM producto_proceso pp
-              JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
-              WHERE pp.id_detalle_producto = $1 AND dp.id_orden = $2 AND dp.id_proceso = $3 AND dp.estado = 'En Proceso'`,
-              [idDetalleInt, idOrdenInt, idProcesoActualInt]
-            );
-          }
-                    
-          if (cantidadActualQuery.rows.length === 0) {
+          if (!cantidadInfo) {
             throw new Error(`No se encontró el producto ${idDetalleInt} en el proceso actual`);
           }
           
-          const cantidadEnProcesoActual = parseInt(cantidadActualQuery.rows[0].cantidad);
-                    
+          const cantidadEnProcesoActual = parseInt(cantidadInfo.cantidad);
+          
+          // OPTIMIZACIÓN: Usar el nombre del producto del mapa
+          const nombreProducto = cantidadInfo.nombre_producto;
+          
           if (cantidadAvanzarInt > cantidadEnProcesoActual) {
-            throw new Error(`No se puede avanzar ${cantidadAvanzarInt} unidades. Solo hay ${cantidadEnProcesoActual} disponibles`);
+            throw new Error(`No se puede avanzar ${cantidadAvanzarInt} unidades de ${nombreProducto}. Solo hay ${cantidadEnProcesoActual} disponibles`);
           }
           
           // Convertir fechas a objetos Date si están presentes
@@ -840,9 +872,11 @@ class AdvanceOrderModel {
     }
   }
 
-  // Obtener órdenes por proceso
-  async getOrdersByProcess(idProceso) {
+  // Obtener órdenes por proceso con paginación (OPTIMIZADO)
+  async getOrdersByProcess(idProceso, page = 1, limit = 50) {
     try {
+      const offset = (page - 1) * limit;
+      
       const query = `
         WITH order_info AS (
           SELECT 
@@ -863,6 +897,8 @@ class AdvanceOrderModel {
           JOIN cliente c ON op.id_cliente = c.id_cliente
           JOIN empleado e ON dp.cedula_empleado = e.cedula
           WHERE dp.id_proceso = $1
+          ORDER BY op.id_orden DESC
+          LIMIT $2 OFFSET $3
         )
         SELECT 
           oi.*,
@@ -876,10 +912,21 @@ class AdvanceOrderModel {
         LEFT JOIN detalle_producto_orden dpo ON oi.id_orden = dpo.id_orden
         LEFT JOIN producto p ON dpo.id_producto = p.id_producto
         LEFT JOIN producto_proceso pp ON dpo.id_detalle = pp.id_detalle_producto AND pp.id_detalle_proceso = oi.id_detalle_proceso
-        ORDER BY oi.id_orden, dpo.id_detalle
+        ORDER BY oi.id_orden DESC, dpo.id_detalle
       `;
       
-      const result = await db.query(query, [idProceso]);
+      // Consulta para contar total
+      const countQuery = `
+        SELECT COUNT(DISTINCT op.id_orden) as total
+        FROM orden_produccion op
+        JOIN detalle_proceso dp ON op.id_orden = dp.id_orden
+        WHERE dp.id_proceso = $1
+      `;
+      
+      const [result, countResult] = await Promise.all([
+        db.query(query, [idProceso, limit, offset]),
+        db.query(countQuery, [idProceso])
+      ]);
       
       // Procesamos el resultado para agrupar los productos por orden
       const orderMap = new Map();
@@ -922,7 +969,15 @@ class AdvanceOrderModel {
       }
       
       // Convertimos el Map a un array para retornarlo
-      return Array.from(orderMap.values());
+      return {
+        data: Array.from(orderMap.values()),
+        pagination: {
+          current_page: page,
+          per_page: limit,
+          total: parseInt(countResult.rows[0].total),
+          total_pages: Math.ceil(countResult.rows[0].total / limit)
+        }
+      };
     } catch (error) {
       throw new Error(`Error al obtener las órdenes por proceso: ${error.message}`);
     }

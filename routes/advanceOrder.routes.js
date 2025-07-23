@@ -2,8 +2,15 @@ const express = require('express');
 const router = express.Router();
 const advanceOrderController = require('../controllers/advanceOrder.controller');
 const authMiddleware = require('../middlewares/auth.middleware.js');
+const { 
+  generalLimiter, 
+  strictLimiter, 
+  advanceProductsLimiter, 
+  uploadLimiter 
+} = require('../middlewares/rateLimiting.middleware');
 
 router.use(authMiddleware);
+router.use(generalLimiter); // Aplicar rate limiting general a todas las rutas
 /**
  * @swagger
  * /api/advance/orden/{idOrden}:
@@ -229,7 +236,7 @@ router.get('/orden/:idOrden/proceso/:idProceso', advanceOrderController.getProdu
  *       500:
  *         description: Error del servidor
  */
-router.post('/advance', advanceOrderController.advanceProducts);
+router.post('/advance', advanceProductsLimiter, uploadLimiter, advanceOrderController.advanceProducts);
 
 /**
  * @swagger
@@ -394,7 +401,7 @@ router.get('/order/:idOrden/details', advanceOrderController.getOrderDetail);
  *       500:
  *         description: Error del servidor
  */
-router.post('/completed', advanceOrderController.completeOrder);
+router.post('/completed', strictLimiter, advanceOrderController.completeOrder);
 
 /**
  * @swagger
@@ -622,7 +629,7 @@ router.get('/available-manufacturing-processes', advanceOrderController.getAvail
  *       500:
  *         description: Error interno del servidor
  */
-router.post('/advance-from-making', advanceOrderController.advanceProductsFromConfeccion);
+router.post('/advance-from-making', advanceProductsLimiter, advanceOrderController.advanceProductsFromConfeccion);
 
 /**
  * @swagger

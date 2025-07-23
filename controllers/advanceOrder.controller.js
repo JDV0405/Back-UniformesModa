@@ -65,6 +65,7 @@ class AdvanceOrderController {
   async getOrdersByProcess(req, res) {
     try {
       const { idProceso } = req.params;
+      const { page = 1, limit = 50 } = req.query;
       
       if (!idProceso) {
         return res.status(400).json({ 
@@ -72,11 +73,29 @@ class AdvanceOrderController {
           message: 'Se requiere el ID del proceso' 
         });
       }
+
+      // Validar parámetros de paginación
+      const pageInt = parseInt(page);
+      const limitInt = parseInt(limit);
       
-      const ordenes = await AdvanceOrderModel.getOrdersByProcess(idProceso);
+      if (isNaN(pageInt) || pageInt < 1) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'El parámetro page debe ser un número mayor a 0' 
+        });
+      }
+      
+      if (isNaN(limitInt) || limitInt < 1 || limitInt > 100) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'El parámetro limit debe ser un número entre 1 y 100' 
+        });
+      }
+      
+      const result = await AdvanceOrderModel.getOrdersByProcess(idProceso, pageInt, limitInt);
       return res.status(200).json({
         success: true,
-        data: ordenes,
+        ...result,
         message: 'Órdenes obtenidas correctamente'
       });
     } catch (error) {
