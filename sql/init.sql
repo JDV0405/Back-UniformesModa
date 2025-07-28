@@ -152,7 +152,7 @@ CREATE TABLE orden_produccion (
     fecha_aproximada DATE,
     tipo_pago VARCHAR(50),
     id_comprobante_pago INTEGER,
-	prioridad_orden VARCHAR(200) NOT NULL DEFAULT 'Sin Prioridad',
+	prioridad_orden VARCHAR(200) NOT NULL DEFAULT 'Baja',
     observaciones VARCHAR(500),
     cedula_empleado_responsable VARCHAR(20) NOT NULL,
 	id_direccion INTEGER NOT NULL,
@@ -162,6 +162,10 @@ CREATE TABLE orden_produccion (
     FOREIGN KEY (cedula_empleado_responsable) REFERENCES empleado(cedula),
 	FOREIGN KEY (id_direccion) REFERENCES direccion(id_direccion)
 );
+
+ALTER TABLE orden_produccion
+ALTER COLUMN prioridad_orden SET DEFAULT 'Baja';
+
 
 -- TABLA CONFECCIONISTA
 CREATE TABLE confeccionista (
@@ -272,6 +276,15 @@ CREATE TABLE historial_empleado_proceso (
     FOREIGN KEY (id_detalle_proceso) REFERENCES detalle_proceso(id_detalle_proceso),
     FOREIGN KEY (cedula_empleado) REFERENCES empleado(cedula)
 );
+
+-- ÍNDICES IMPLEMENTADOS
+-- Indice para búsqueda por email (el más importante)
+CREATE INDEX idx_usuario_email ON usuario(email);
+-- Opcional: mejora filtro booleano en login
+CREATE INDEX idx_usuario_activo ON usuario(activo);
+CREATE INDEX idx_empleado_activo ON empleado(activo);
+-- Mejora JOIN entre empleado y empleado_rol
+CREATE INDEX idx_empleado_rol_cedula ON empleado_rol(cedula_empleado);
 
 																												
 --Departamento
@@ -550,11 +563,12 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
   "Tipo": { "tipo": "select", "opciones": ["Caballero","Dama"], "placeholder": "Seleccione una Opción" },
   "Cm Adicionales": { "tipo": "number", "placeholder": "Ingrese el Numero de Cm Adicionales" }
 }'),
-
+--------------------------------------CONJUNTOS-------------------------------------------------------------
 (
   'Cuello V',
   'Conjunto con estilo en V.', 1,'{"Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"}, "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Sesgo": {"tipo": "select","opciones": ["Si","No"],"placeholder": "Seleccione una opción"},
   "Tono 1": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Tono para el Sesgo","condicional": {"campo": "Sesgo","valor": "Si"}}}'
 ),
@@ -563,13 +577,16 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" }
 }'),
+
 
 ('Conjunto 029 Dama','Conjunto con estilo en 029.',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Sesgo": { "tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción" },
   "Tono 1": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": { "campo": "Sesgo", "valor": "Sesgo" } }
@@ -579,15 +596,17 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Sesgo": { "tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción" },
   "Tono 1": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": { "campo": "Sesgo", "valor": "Sesgo" } }
 }'),
 
-('Cuello V RIB Dama','Conjunto con estilo de cuello RIB .',1,
+('Conjunto Cuello V RIB Dama','Conjunto con estilo de cuello RIB .',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Combinación": { "tipo": "select", "opciones": ["combinacion"], "placeholder": "Seleccione una opción" },
   "Tono 1 Combinación": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": { "campo": "Combinación", "valor": "combinacion" } }
@@ -597,42 +616,48 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Sesgo": { "tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción" },
   "Tono 1": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": { "campo": "Sesgo", "valor": "Sesgo" } }
 }'),
 
-('Cuello V Cierre','Conjunto con estilo de multiples costuras.',1,
+
+('Conjunto Cuello V Cierre','Conjunto con estilo del cuello en forma de V',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Sesgo": { "tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción" },
   "Tono 1": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": { "campo": "Sesgo", "valor": "Sesgo" } }
 }'),
 
-('Cuello Polo Cierre','Conjunto con estilo de cuello polo cierre.',1,
+('Conjunto Cuello Polo Cierre','Conjunto con estilo de cuello polo cierre.',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Sesgo": { "tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción" },
   "Tono 1": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": { "campo": "Sesgo", "valor": "Sesgo" } }
 }'),
 
-('Conjunto Cinturon Dama','Conjunto con estilo cinturon dama.',1,
+('Conjunto Cinturon Dama','Conjunto con estilo cinturón dama.',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Sesgo": { "tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción" },
   "Tono 1": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": { "campo": "Sesgo", "valor": "Sesgo" } }
 }'),
 
-('Cuello Y Dama','Conjunto con estilo cuello Y.',1,
+('Conjunto Cuello en Y Dama','Conjunto con estilo cuello Y.',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Sesgo": { "tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción" },
   "Tono 1": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": { "campo": "Sesgo", "valor": "Sesgo" } }
@@ -642,15 +667,17 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Sesgo": { "tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción" },
   "Tono 1": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": { "campo": "Sesgo", "valor": "Sesgo" } }
 }'),
 
-('Cuello Embudo','Conjunto con cuello de embudo.',1,
+('Conjunto Cuello Embudo','Conjunto con cuello de embudo.',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Sesgo": { "tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción" },
   "Tono 1": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": { "campo": "Sesgo", "valor": "Sesgo" } }
@@ -660,6 +687,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Sesgo": { "tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción" },
   "Tono 1": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": { "campo": "Sesgo", "valor": "Sesgo" } }
@@ -669,29 +697,33 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" }
 }'),
 
-('Cuello Trenza','Conjunto con estilo con cuello trenza',1,
+('Conjunto Cuello Trenza','Conjunto con estilo con cuello trenza',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" }
 }'),
 
-('Cuello Cruzado UDA','Blusa médica tipo UDA.',1,
+('Conjunto Cuello Cruzado UDA','Blusa médica tipo UDA.',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Sesgo": { "tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción" },
   "Tono 1": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": { "campo": "Sesgo", "valor": "Sesgo" } }
 }'),
 
-('Cuello Ruth','Conjunto con estilo de cuello Ruth .',1,
+('Conjunto Cuello Ruth','Conjunto con estilo de cuello Ruth.',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Combinacion": { "tipo": "select", "opciones": ["combinacion"], "placeholder": "Seleccione una opción" },
   "Tono 1 Combinación": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": { "campo": "Combinacion", "valor": "combinacion" } },
@@ -702,6 +734,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" }
 }'),
 
@@ -709,6 +742,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" }
 }'),
 
@@ -716,10 +750,11 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" }
 }'),
 
-('Cuello Triangulo','Conjunto con estilo con cuello triangulo',1,
+('Conjunto Cuello Triangulo','Conjunto con estilo con cuello triangulo',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
@@ -730,20 +765,23 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" }
 }'),
 
-('Cuello Nerú','Conjunto con estilo con cuello Nerú',1,
+('Conjunto Cuello Nerú','Conjunto con estilo con cuello Nerú',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" }
 }'),
 
-('Conjunto Lucca','Conjunto con estilo Lucca .',1,
+('Conjunto Lucca','Conjunto con estilo Lucca.',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Combinacion": { "tipo": "select", "opciones": ["combinacion"], "placeholder": "Seleccione una opción" },
   "Tono 1 Combinación": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": { "campo": "Combinacion", "valor": "combinacion" } },
@@ -754,6 +792,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Combinación": { "tipo": "select", "opciones": ["combinacion"], "placeholder": "Seleccione una opción" },
   "Tono 1 Combinación": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": { "campo": "Combinación", "valor": "combinacion" } },
@@ -764,6 +803,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" },
   "Sesgo": { "tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción" },
   "Tono 1": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": { "campo": "Sesgo", "valor": "Sesgo" } }
@@ -773,6 +813,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" }
 }'),
 
@@ -780,6 +821,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" }
 }'),
 
@@ -787,16 +829,18 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
   "Combinación": { "tipo": "select", "opciones": ["combinacion"], "placeholder": "Seleccione una opción" },
   "Tono 1 Combinación": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": { "campo": "Combinación", "valor": "combinacion" } },
   "Tono 2 Combinación": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Segundo Tono de la Combinación", "condicional": { "campo": "Combinación", "valor": "combinacion" } }
 }'),
 
-('Conjunto Combinado Cierre Delujo Dama','Conjunto con estilo combinado para dama.',1,
+('Conjunto Combinado Cierre Delujo Dama','Conjunto con estilo Cierre Delujo para dama.',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
   "Combinación": { "tipo": "select", "opciones": ["combinacion"], "placeholder": "Seleccione una opción" },
   "Tono 1 Combinación": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": { "campo": "Combinación", "valor": "combinacion" } }
@@ -806,6 +850,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
   "Combinación": { "tipo": "select", "opciones": ["combinacion"], "placeholder": "Seleccione una opción" },
   "Tono 1 Combinación": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": { "campo": "Combinación", "valor": "combinacion" } },
@@ -816,13 +861,15 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" }
 }'),
 
-('Conjunto Roma dama','Conjunto con estilo deportivo.',1,
+('Conjunto Roma dama','Conjunto con estilo Roma',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
   "Combinación": { "tipo": "select", "opciones": ["combinacion"], "placeholder": "Seleccione una opción" },
   "Tono 1 Combinación": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": { "campo": "Combinación", "valor": "combinacion" } },
@@ -833,29 +880,33 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 '{
   "Talla": { "tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" }
 }'),
 
-('Conjunto Manga Petalo','Conjunto con estilo indigo',1,
+('Conjunto Manga Petalo','Conjunto con estilo petalo',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
   "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" }
 }'),
 
-('Cuello Cruzado Dama','Blusa médica tipo cuello Cruzado con opción de Sesgo.',1,
+('Conjunto Cuello Cruzado Dama','Conjunto tipo cuello Cruzado dama.',1,
 '{
   "Talla": { "tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción" },
   "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
   "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
   "Sesgo": { "tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción" },
   "Tono 1": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": { "campo": "Sesgo", "valor": "Sesgo" } }
 }'),
--------------------camisas----------------
+
+-------------------camisas-------------------
 ('Camisa Cuello V',
  'Conjunto con estilo en V.', 7,
  '{"Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
    "Sesgo": {"tipo": "select","opciones": ["Si","No"],"placeholder": "Seleccione una opción"},
    "Tono 1": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Tono para el Sesgo","condicional": {"campo": "Sesgo","valor": "Si"}}}'
@@ -865,12 +916,14 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
  'Conjunto con estilo con cuello redondo.', 7,
  '{"Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" }}'),
 
 ('Camisa 029 Dama',
  'Conjunto con estilo en 029.', 7,
  '{"Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
    "Sesgo": {"tipo": "select","opciones": ["Sesgo"],"placeholder": "Seleccione una opción"},
    "Tono 1": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Tono para el Sesgo","condicional": {"campo": "Sesgo","valor": "Sesgo"}}}'
@@ -880,6 +933,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
  'Conjunto con estilo de multiples costuras.', 7,
  '{"Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
    "Sesgo": {"tipo": "select","opciones": ["Sesgo"],"placeholder": "Seleccione una opción"},
    "Tono 1": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Tono para el Sesgo","condicional": {"campo": "Sesgo","valor": "Sesgo"}}}'
@@ -889,6 +943,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
  'Conjunto con estilo de cuello RIB .', 7,
  '{"Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
    "Combinación": {"tipo": "select","opciones": ["combinacion"],"placeholder": "Seleccione una opción"},
    "Tono 1 Combinación": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Primer Tono de la Combinación","condicional": {"campo": "Combinación","valor": "combinacion"}}}'
@@ -898,6 +953,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
  'Conjunto con estilo HGM.', 7,
  '{"Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
    "Sesgo": {"tipo": "select","opciones": ["Sesgo"],"placeholder": "Seleccione una opción"},
    "Tono 1": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Tono para el Sesgo","condicional": {"campo": "Sesgo","valor": "Sesgo"}}}'
@@ -907,6 +963,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
  'Conjunto con estilo de multiples costuras.', 7,
  '{"Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
    "Sesgo": {"tipo": "select","opciones": ["Sesgo"],"placeholder": "Seleccione una opción"},
    "Tono 1": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Tono para el Sesgo","condicional": {"campo": "Sesgo","valor": "Sesgo"}}}'
@@ -916,6 +973,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
  'Conjunto con estilo de cuello polo cierre.', 7,
  '{"Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
    "Sesgo": {"tipo": "select","opciones": ["Sesgo"],"placeholder": "Seleccione una opción"},
    "Tono 1": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Tono para el Sesgo","condicional": {"campo": "Sesgo","valor": "Sesgo"}}}'
@@ -925,6 +983,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
  'Conjunto con estilo cinturon dama.', 7,
  '{"Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
    "Sesgo": {"tipo": "select","opciones": ["Sesgo"],"placeholder": "Seleccione una opción"},
    "Tono 1": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Tono para el Sesgo","condicional": {"campo": "Sesgo","valor": "Sesgo"}}}'
@@ -934,6 +993,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
  'Conjunto con estilo cuello Y.', 7,
  '{"Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
    "Color": {"tipo": "select", "fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" },
    "Sesgo": {"tipo": "select","opciones": ["Sesgo"],"placeholder": "Seleccione una opción"},
    "Tono 1": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Tono para el Sesgo","condicional": {"campo": "Sesgo","valor": "Sesgo"}}}'
@@ -942,6 +1002,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 ('Camisa Fonendo Dama','Conjunto con estilo fonendo.',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select","opciones": ["Si","No"], "placeholder": "Seleccione una Opción"},
    "Sesgo": {"tipo": "select","opciones": ["Sesgo"],"placeholder": "Seleccione una opción"},
    "Tono 1": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Tono para el Sesgo", "condicional": {"campo": "Sesgo", "valor": "Sesgo"}}}'
@@ -950,6 +1011,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 ('Camisa Cuello Embudo','Conjunto con cuello de embudo.',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select","opciones": ["Si","No"], "placeholder": "Seleccione una Opción"},
    "Sesgo": {"tipo": "select","opciones": ["Sesgo"],"placeholder": "Seleccione una opción"},
    "Tono 1": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Tono para el Sesgo", "condicional": {"campo": "Sesgo", "valor": "Sesgo"}}}'
@@ -958,6 +1020,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 ('Camisa Cheff','Conjunto con estilo cheff.',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select","opciones": ["Si","No"], "placeholder": "Seleccione una Opción"},
    "Sesgo": {"tipo": "select","opciones": ["Sesgo"],"placeholder": "Seleccione una opción"},
    "Tono 1": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Tono para el Sesgo", "condicional": {"campo": "Sesgo", "valor": "Sesgo"}}}'
@@ -966,18 +1029,21 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 ('Camisa Gaby Dama','Conjunto con estilo con cuello gaby.',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select","opciones": ["Si","No"], "placeholder": "Seleccione una Opción"}}'
 ),
 
 ('Camisa Cuello Trenza','Conjunto con estilo con cuello trenza',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select","opciones": ["Si","No"], "placeholder": "Seleccione una Opción"}}'
 ),
 
 ('Camisa Cuello Cruzado UDA','Blusa médica tipo UDA.',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select","opciones": ["Si","No"], "placeholder": "Seleccione una Opción"},
    "Sesgo": {"tipo": "select","opciones": ["Sesgo"],"placeholder": "Seleccione una opción"},
    "Tono 1": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Tono para el Sesgo", "condicional": {"campo": "Sesgo", "valor": "Sesgo"}}}'
@@ -986,6 +1052,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 ('Camisa Cuello Ruth','Conjunto con estilo de cuello Ruth .',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select","opciones": ["Si","No"], "placeholder": "Seleccione una Opción"},
    "Combinación": {"tipo": "select","opciones": ["combinacion"],"placeholder": "Seleccione una opción"},
    "Tono 1 Combinación": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": {"campo": "Combinación", "valor": "combinacion"}},
@@ -995,42 +1062,49 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 ('Camisa Bolero Dama','Conjunto con estilo bolero',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select","opciones": ["Si","No"], "placeholder": "Seleccione una Opción"}}'
 ),
 
 ('Camisa Kimono Embarazada','Conjunto con estilo de kimono para embarazadas',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select","opciones": ["Si","No"], "placeholder": "Seleccione una Opción"}}'
 ),
 
 ('Camisa Marcofidel','Conjunto para marcofidel',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select","opciones": ["Si","No"], "placeholder": "Seleccione una Opción"}}'
 ),
 
 ('Camisa Cuello Triangulo','Conjunto con estilo con cuello triangulo',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"}}'
 ),
 
 ('Camisa Materno','Conjunto con estilo materno',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"}}'
 ),
 
 ('Camisa Cuello Nerú','Conjunto con estilo con cuello Nerú',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"}}'
 ),
 
 ('Camisa Lucca','Conjunto con estilo Lucca .',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"},
    "Combinación": {"tipo": "select", "opciones": ["combinacion"], "placeholder": "Seleccione una opción"},
    "Tono 1 Combinación": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": {"campo": "Combinación", "valor": "combinacion"}},
@@ -1040,6 +1114,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 ('Camisa Paris Dama','Conjunto con estilo Paris Dama.',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"},
    "Combinación": {"tipo": "select", "opciones": ["combinacion"], "placeholder": "Seleccione una opción"},
    "Tono 1 Combinación": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": {"campo": "Combinación", "valor": "combinacion"}},
@@ -1049,6 +1124,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 ('Camisa Princesa Dama','Blusa médica tipo cuello Cruzado con opción de Sesgo.',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"},
    "Sesgo": {"tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción"},
    "Tono 1": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": {"campo": "Sesgo", "valor": "Sesgo"}}}'
@@ -1057,18 +1133,21 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 ('Camisa Polo Caballero','Conjunto con estilo tipo polo',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"}}'
 ),
 
 ('Camisa Polo Dama','Conjunto con estilo tipo polo',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"}}'
 ),
 
 ('Camisa Combinado Dama','Conjunto con estilo combinado para dama.',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"},
    "Combinación": {"tipo": "select", "opciones": ["combinacion"], "placeholder": "Seleccione una opción"},
    "Tono 1 Combinación": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": {"campo": "Combinación", "valor": "combinacion"}},
@@ -1078,6 +1157,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 ('Camisa Combinado Cierre Delujo Dama','Conjunto con estilo combinado para dama.',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"},
    "Combinación": {"tipo": "select", "opciones": ["combinacion"], "placeholder": "Seleccione una opción"},
    "Tono 1 Combinación": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": {"campo": "Combinación", "valor": "combinacion"}}}'
@@ -1086,6 +1166,7 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 ('Camisa deportivo dama','Conjunto con estilo deportivo.',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"},
    "Combinación": {"tipo": "select", "opciones": ["combinacion"], "placeholder": "Seleccione una opción"},
    "Tono 1 Combinación": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": {"campo": "Combinación", "valor": "combinacion"}},
@@ -1095,12 +1176,14 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 ('Camisa Indigo Dama','Conjunto con estilo indigo',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"}}'
 ),
 
 ('Camisa Roma dama','Conjunto con estilo deportivo.',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"},
    "Combinación": {"tipo": "select", "opciones": ["combinacion"], "placeholder": "Seleccione una opción"},
    "Tono 1 Combinación": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Primer Tono de la Combinación", "condicional": {"campo": "Combinación", "valor": "combinacion"}},
@@ -1110,18 +1193,21 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 ('Camisa Manga Oruga Dama','Conjunto con estilo indigo',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"}}'
 ),
 
 ('Camisa Manga Petalo','Conjunto con estilo indigo',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"}}'
 ),
 
 ('Camisa Cuello Cruzado Dama','Blusa médica tipo cuello Cruzado con opción de Sesgo.',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
    "Color": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base"},
+   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"},
    "Sesgo": {"tipo": "select", "opciones": ["Sesgo"], "placeholder": "Seleccione una opción"},
    "Tono 1": {"tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": {"campo": "Sesgo", "valor": "Sesgo"}}}'
