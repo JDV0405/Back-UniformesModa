@@ -4,7 +4,7 @@ const usuarioController = require('../controllers/createUsers.controller.js');
 
 /**
  * @swagger
- * /api/usuarios:
+ * /api/createUsers:
  *   post:
  *     summary: Crea un nuevo usuario
  *     tags: [Usuarios]
@@ -42,12 +42,11 @@ const usuarioController = require('../controllers/createUsers.controller.js');
  *       500:
  *         description: Error interno del servidor
  */
-
 router.post('/createUsers', usuarioController.crearUsuario);
 
 /**
  * @swagger
- * /api/usuarios:
+ * /api/getAllUsers:
  *   get:
  *     summary: Obtiene todos los usuarios del sistema
  *     tags: [Usuarios]
@@ -91,12 +90,11 @@ router.post('/createUsers', usuarioController.crearUsuario);
  *       500:
  *         description: Error interno del servidor
  */
-
 router.get('/getAllUsers', usuarioController.obtenerTodosLosUsuarios);
 
 /**
  * @swagger
- * /api/usuarios/{cedula}:
+ * /api/editUsers/{cedula}:
  *   put:
  *     summary: Edita un usuario existente
  *     tags: [Usuarios]
@@ -143,7 +141,6 @@ router.get('/getAllUsers', usuarioController.obtenerTodosLosUsuarios);
  *       500:
  *         description: Error interno del servidor
  */
-
 router.put('/editUsers/:cedula', usuarioController.editarUsuario);
 
 /**
@@ -173,7 +170,6 @@ router.put('/editUsers/:cedula', usuarioController.editarUsuario);
  *       500:
  *         description: Error interno del servidor
  */
-
 router.get('/roles', usuarioController.obtenerTodosLosRoles);
 
 /**
@@ -466,7 +462,7 @@ router.get('/historial-actividades/:cedula', usuarioController.obtenerHistorialA
 
 /**
  * @swagger
- * /api/estadisticas-rol/{cedula}/{id_rol}:
+ * /api/perfil/:cedula/estadisticas/:id_rol:
  *   get:
  *     summary: Obtiene estadísticas específicas por rol de un usuario
  *     tags: [Perfil de Usuario]

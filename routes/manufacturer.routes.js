@@ -4,7 +4,7 @@ const ConfeccionistaController = require('../controllers/manufacturer.controller
 
 /**
  * @swagger
- * /api/confeccionistas:
+ * /api/getAllConfeccionistas:
  *   get:
  *     summary: Obtiene todos los confeccionistas con estadísticas básicas
  *     tags: [Confeccionistas]
@@ -18,7 +18,7 @@ router.get('/getAllConfeccionistas', ConfeccionistaController.getAllConfeccionis
 
 /**
  * @swagger
- * /api/confeccionistas/productos:
+ * /api/getAllConfeccionistasWithProducts:
  *   get:
  *     summary: Obtiene todos los confeccionistas con resumen de sus productos
  *     tags: [Confeccionistas]
@@ -32,7 +32,7 @@ router.get('/getAllConfeccionistasWithProducts', ConfeccionistaController.getAll
 
 /**
  * @swagger
- * /api/confeccionistas/{id}:
+ * /api/getConfeccionistaById/{id}:
  *   get:
  *     summary: Obtiene un confeccionista específico por su ID
  *     tags: [Confeccionistas]
@@ -78,7 +78,7 @@ router.get('/:id/productos', ConfeccionistaController.getProductosByConfeccionis
 
 /**
  * @swagger
- * /api/confeccionistas:
+ * /api/createManufacturer:
  *   post:
  *     summary: Crea un nuevo confeccionista
  *     tags: [Confeccionistas]
@@ -123,7 +123,7 @@ router.post('/createManufacturer', ConfeccionistaController.createConfeccionista
 
 /**
  * @swagger
- * /api/confeccionistas/{id}:
+ * /api/updateManufacturer/{id}:
  *   put:
  *     summary: Actualiza un confeccionista existente
  *     tags: [Confeccionistas]
@@ -175,7 +175,7 @@ router.put('/updateManufacturer/:id', ConfeccionistaController.updateConfeccioni
 
 /**
  * @swagger
- * /api/confeccionistas/{id}:
+ * /api/deleteManufacturer/{id}:
  *   delete:
  *     summary: Elimina un confeccionista o lo marca como inactivo si tiene productos asignados
  *     tags: [Confeccionistas]

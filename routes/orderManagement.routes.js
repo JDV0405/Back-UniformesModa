@@ -373,7 +373,7 @@ router.get('/orders/:idOrden', OrderController.getOrderDetails);
 
 /**
  * @swagger
- * /orders/{idOrden}:
+ * /updateOrder/{idOrden}:
  *   put:
  *     summary: Actualiza una orden de producción existente
  *     tags: [Órdenes]

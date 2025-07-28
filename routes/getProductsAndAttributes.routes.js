@@ -9,7 +9,7 @@ const {
 
 /**
  * @swagger
- * /category/{categoryId}/products:
+ * /api/category/{categoryId}/products:
  *   get:
  *     summary: Obtiene productos, colores y patrones por categoría
  *     tags: [Productos]
@@ -54,7 +54,7 @@ router.get('/category/:categoryId/products', getProductsInfoByCategory);
 
 /**
  * @swagger
- * /department/{departmentId}/cities:
+ * /api/department/{departmentId}/cities:
  *   get:
  *     summary: Obtiene ciudades por departamento
  *     tags: [Ubicaciones]
@@ -88,7 +88,7 @@ router.get('/department/:departmentId/cities', getCitiesByDepartmentController);
 
 /**
  * @swagger
- * /assesorEmployee:
+ * /api/assesorEmployee:
  *   get:
  *     summary: Obtiene la lista de empleados asesores/vendedores
  *     tags: [Personal]
@@ -135,7 +135,7 @@ router.get('/assesorEmployee', getAssesorEmployeeController);
 
 /**
  * @swagger
- * /employeesByRole:
+ * api//employeesByRole:
  *   post:
  *     summary: Obtiene empleados que tengan roles con palabras clave específicas
  *     tags: [Personal]
