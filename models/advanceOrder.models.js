@@ -208,7 +208,9 @@ class AdvanceOrderModel {
       // NUEVO: Permitir especificar destino para cada producto cuando viene de confección
       destinosPorProducto = {},
       // NUEVO: Datos de factura para transición de facturación a entrega
-      facturaData = null
+      facturaData = null,
+      // NUEVO: Fecha aproximada proporcionada por el frontend
+      fechaAproximada = null
     } = datos;
     
     try {
@@ -231,29 +233,37 @@ class AdvanceOrderModel {
       const isSolicitudToTrazos = idProcesoActualInt === 1 && idProcesoSiguienteInt === 2;
     
     if (isSolicitudToTrazos) {
-      const fechaAprox = new Date();
-      fechaAprox.setDate(fechaAprox.getDate() + 40);
-      
-      await db.query(
-        `UPDATE orden_produccion SET fecha_aproximada = $1 WHERE id_orden = $2`,
-        [fechaAprox, idOrdenInt]
-      );
-      
-      // Podemos agregar una observación para registrar cuándo se asignó la fecha aproximada
-      const fechaActual = new Date().toLocaleString('es-CO', { 
-        timeZone: 'America/Bogota',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit' 
-      });
-      
-      const nuevaObservacion = observaciones ? 
-        `${observaciones}\n\n[${fechaActual}] Fecha aproximada de entrega asignada: ${fechaAprox.toLocaleDateString('es-CO')}` : 
-        `[${fechaActual}] Fecha aproximada de entrega asignada: ${fechaAprox.toLocaleDateString('es-CO')}`;
-      
-      datos.observaciones = nuevaObservacion;
+      // Si el frontend proporciona una fecha aproximada, usarla
+      let fechaAprox = null;
+      if (fechaAproximada) {
+        fechaAprox = new Date(fechaAproximada);
+        
+        // Validar que la fecha sea válida
+        if (isNaN(fechaAprox.getTime())) {
+          throw new Error('La fecha aproximada proporcionada no es válida');
+        }
+        
+        await db.query(
+          `UPDATE orden_produccion SET fecha_aproximada = $1 WHERE id_orden = $2`,
+          [fechaAprox, idOrdenInt]
+        );
+        
+        // Agregar una observación para registrar cuándo se asignó la fecha aproximada
+        const fechaActual = new Date().toLocaleString('es-CO', { 
+          timeZone: 'America/Bogota',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit' 
+        });
+        
+        const nuevaObservacion = observaciones ? 
+          `${observaciones}\n\n[${fechaActual}] Fecha aproximada de entrega asignada: ${fechaAprox.toLocaleDateString('es-CO')}` : 
+          `[${fechaActual}] Fecha aproximada de entrega asignada: ${fechaAprox.toLocaleDateString('es-CO')}`;
+        
+        datos.observaciones = nuevaObservacion;
+      }
     }
       let idDetalleProcesoSiguiente = null;
       

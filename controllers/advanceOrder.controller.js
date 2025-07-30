@@ -189,7 +189,8 @@ class AdvanceOrderController {
           itemsToAdvance,
           observaciones,
           numero_factura,
-          observaciones_factura
+          observaciones_factura,
+          fechaAproximada
         } = req.body;
         
         // Parsear itemsToAdvance si viene como string
@@ -279,7 +280,8 @@ class AdvanceOrderController {
           cedulaEmpleadoActual,
           itemsToAdvance: parsedItemsToAdvance,
           observaciones,
-          facturaData
+          facturaData,
+          fechaAproximada
         });
         
         return res.status(200).json({

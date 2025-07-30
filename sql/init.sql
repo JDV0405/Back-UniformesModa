@@ -901,6 +901,13 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
   "Tono 1": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Tono para el Sesgo", "condicional": { "campo": "Sesgo", "valor": "Sesgo" } }
 }'),
 
+('Conjunto Cuello Sportchi','Conjunto con estilo deportivo',1,
+'{
+  "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL", "6XL", "7XL", "8XL"], "placeholder": "Seleccione la Opción" },
+  "Color": { "tipo": "select", "fuente": "categoria_color", "placeholder": "Seleccione el Color Base" },
+  "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" }
+}');
+
 -------------------camisas-------------------
 ('Camisa Cuello V',
  'Conjunto con estilo en V.', 7,
@@ -914,10 +921,11 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
 
 ('Camisa Cuello Redondo',
  'Conjunto con estilo con cuello redondo.', 7,
- '{"Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
-   "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
-   "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
-   "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" }}'),
+ '{
+  "Talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"], "placeholder": "Seleccione la Opción" },
+  "Color": {"tipo": "select","fuente": "categoria_color","placeholder": "Seleccione el Color Base"},
+  "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
+  "Bordado": { "tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción" }}'),
 
 ('Camisa 029 Dama',
  'Conjunto con estilo en 029.', 7,
@@ -1203,6 +1211,12 @@ INSERT INTO producto (nombre_producto, descripcion, id_categoria, atributos) VAL
    "Tipo de Tela": {"tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester","Licra"], "placeholder": "seleccione la Opción" },
    "Bordado": {"tipo": "select", "opciones": ["Si","No"], "placeholder": "Seleccione una Opción"}}'
 ),
+
+('Camisa Sportchi', 'Camisa deportiva', 7, '{
+  "talla": { "tipo": "select", "opciones": ["XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL", "6XL", "7XL", "8XL"], "placeholder": "Seleccione una Talla" },
+  "Tipo de Tela": { "tipo": "select", "opciones": ["Genero","La fayette","Drill","Poliester", "Licra"] , "placeholder": "Seleccione la Opción" },
+  "Bordado": { "tipo": "select", "opciones": ["Si", "No"], "placeholder": "Seleccione una Opción" }
+}'),
 
 ('Camisa Cuello Cruzado Dama','Blusa médica tipo cuello Cruzado con opción de Sesgo.',7,
  '{"Talla": {"tipo": "select", "opciones": ["XS","S","M","L","XL","XXL","XXXL","XXXXL"], "placeholder": "Seleccione la Opción"},
