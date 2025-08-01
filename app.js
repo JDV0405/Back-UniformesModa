@@ -12,10 +12,14 @@ const valoracionesRoutes = require('./routes/assessment.routes.js');
 const confeccionistaRoutes = require('./routes/manufacturer.routes.js'); 
 const publicApisRoutes = require('./routes/publicApis.routes.js');
 const path = require('path');
+const { isAzureBlobAvailable } = require('./config/azureStorage');
 
 // Swagger
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger.js');
+
+// AGREGAR ESTA LÍNEA para Azure Web Apps
+app.set('trust proxy', 1);
 
 // CORS
 app.use(cors({
@@ -23,16 +27,68 @@ app.use(cors({
   credentials: true,
 }));
 
-// Servir archivos estáticos desde la carpeta Uniformes_Imagenes
+// Log del estado de Azure Blob Storage
+if (isAzureBlobAvailable()) {
+  console.log('✅ Azure Blob Storage configurado - Las imágenes se guardarán en Azure');
+} else {
+  console.log('⚠️  Azure Blob Storage NO configurado - Las imágenes se guardarán localmente');
+}
+
+app.get('/test-azure-storage', async (req, res) => {
+    try {
+        const { BlobServiceClient } = require('@azure/storage-blob');
+        const blobServiceClient = BlobServiceClient.fromConnectionString(
+            process.env.AZURE_STORAGE_CONNECTION_STRING
+        );
+        
+        const containerClient = blobServiceClient.getContainerClient(
+            process.env.AZURE_STORAGE_CONTAINER_NAME
+        );
+        
+        // Verificar si el contenedor existe
+        const exists = await containerClient.exists();
+        
+        if (exists) {
+            // Listar algunos blobs
+            const blobs = [];
+            for await (const blob of containerClient.listBlobsFlat()) {
+                blobs.push(blob.name);
+                if (blobs.length >= 10) break; // Solo mostrar 10
+            }
+            
+            res.json({
+                success: true,
+                message: 'Conexión a Azure Storage exitosa',
+                containerExists: true,
+                blobCount: blobs.length,
+                sampleBlobs: blobs
+            });
+        } else {
+            res.json({
+                success: false,
+                message: 'El contenedor no existe',
+                containerExists: false
+            });
+        }
+    } catch (error) {
+        res.json({
+            success: false,
+            message: 'Error conectando a Azure Storage',
+            error: error.message
+        });
+    }
+});
+
+// Servir archivos estáticos desde la carpeta Uniformes_Imagenes (solo como fallback)
 app.use('/images', express.static(path.join(__dirname, 'Uniformes_Imagenes')));
 
-// Servir archivos estáticos de facturas desde el escritorio
+// Servir archivos estáticos de facturas desde el escritorio (solo como fallback)
 app.use('/facturas', express.static('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\facturas'));
 
-// Servir archivos estáticos de productos desde el escritorio
+// Servir archivos estáticos de productos desde el escritorio (solo como fallback)
 app.use('/productos', express.static('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\productos'));
 
-// Servir archivos estáticos de comprobantes desde el escritorio
+// Servir archivos estáticos de comprobantes desde el escritorio (solo como fallback)
 app.use('/comprobantes', express.static('C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\comprobantes'));
 
 // Aumentar límites para JSON y URL-encoded

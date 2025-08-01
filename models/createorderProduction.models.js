@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
+const { saveFileWithFallback, uploadToBlob, isAzureBlobAvailable } = require('../config/azureStorage');
 
 async function createOrder(orderData, clientData, products, paymentInfo, paymentProofFile, productFiles, baseUrl) {
     const client = await pool.connect();
@@ -70,28 +72,47 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
             }
             
             const allProductImages = [];
+            const processedImageHashes = new Set(); // Para evitar duplicados
             
-            // Agregar imágenes directas (archivos subidos)
+            // Función helper para crear hash de imagen
+            const createImageHash = (buffer) => {
+                const crypto = require('crypto');
+                return crypto.createHash('md5').update(buffer).digest('hex');
+            };
+            
+            // Agregar imágenes directas (archivos subidos) - solo si no están duplicadas
             if (productImageFiles.length > 0) {
                 for (let j = 0; j < productImageFiles.length; j++) {
                     const file = productImageFiles[j];
-                    allProductImages.push({
-                        type: 'direct',
-                        file: file,
-                        index: j
-                    });
+                    const imageHash = createImageHash(file.buffer);
+                    
+                    if (!processedImageHashes.has(imageHash)) {
+                        processedImageHashes.add(imageHash);
+                        allProductImages.push({
+                            type: 'direct',
+                            file: file,
+                            index: j,
+                            hash: imageHash
+                        });
+                    }
                 }
             }
             
-            // Agregar imágenes extraídas de atributos (base64)
+            // Agregar imágenes extraídas de atributos (base64) - solo si no están duplicadas
             if (extractedImages.length > 0) {
                 for (let j = 0; j < extractedImages.length; j++) {
                     const image = extractedImages[j];
-                    allProductImages.push({
-                        type: 'attribute',
-                        image: image,
-                        index: productImageFiles.length + j
-                    });
+                    const imageHash = createImageHash(image.buffer);
+                    
+                    if (!processedImageHashes.has(imageHash)) {
+                        processedImageHashes.add(imageHash);
+                        allProductImages.push({
+                            type: 'attribute',
+                            image: image,
+                            index: productImageFiles.length + j,
+                            hash: imageHash
+                        });
+                    }
                 }
             }
             
@@ -222,52 +243,13 @@ async function savePaymentProof(file, baseUrl) {
         throw new Error('El archivo de comprobante no fue proporcionado');
     }
     
-    // Si el archivo viene de diskStorage, ya está guardado - solo necesitamos generar la URL
-    if (file.filename && file.path) {
-        // El archivo ya fue guardado por multer.diskStorage
-        const fullUrl = `${baseUrl}/comprobantes/${file.filename}`;
-        return fullUrl;
+    try {
+        // Usar la función saveFileWithFallback que maneja Azure y fallback local
+        return await saveFileWithFallback(file, 'comprobantes', baseUrl);
+    } catch (error) {
+        console.error('Error al guardar comprobante de pago:', error);
+        throw new Error(`Error al guardar comprobante: ${error.message}`);
     }
-    
-    // Si el archivo viene de memoryStorage, necesitamos guardarlo manualmente
-    if (file.buffer) {
-        const desktopDir = require('os').homedir() + '/Desktop';
-        const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'comprobantes');
-        
-        if (!fs.existsSync(uploadsDir)){
-            fs.mkdirSync(uploadsDir, { recursive: true });
-        }
-        
-        const timestamp = Date.now();
-        const filename = `comprobante_${timestamp}_${file.originalname}`;
-        const filepath = path.join(uploadsDir, filename);
-        
-        const writeStream = fs.createWriteStream(filepath);
-        
-        return new Promise((resolve, reject) => {
-            // Validar buffer antes de escribir
-            if (!Buffer.isBuffer(file.buffer)) {
-                reject(new Error('El buffer del archivo no es válido'));
-                return;
-            }
-            
-            // Write file
-            writeStream.write(file.buffer);
-            writeStream.end();
-            
-            writeStream.on('finish', () => {
-                // Devolver URL completa como en las facturas
-                const fullUrl = `${baseUrl}/comprobantes/${filename}`;
-                resolve(fullUrl);
-            });
-            
-            writeStream.on('error', (err) => {
-                reject(err);
-            });
-        });
-    }
-    
-    throw new Error('El archivo no tiene ni buffer ni path - formato no válido');
 }
 
 async function createPaymentProof(client, filePath) {
@@ -689,6 +671,7 @@ async function processUserAttributesImages(userAttributes, productId, orderId) {
     
     const cleanedAttributes = { ...userAttributes };
     const extractedImages = [];
+    const processedImages = new Set(); // Evitar duplicados dentro de atributos
     
     // Función recursiva para buscar y extraer imágenes base64
     function extractAndRemoveBase64Images(obj, path = '') {
@@ -698,71 +681,83 @@ async function processUserAttributesImages(userAttributes, productId, orderId) {
                 const currentPath = path ? `${path}.${key}` : key;
                 
                 if (typeof value === 'string' && value.startsWith('data:image/')) {
-                    // Es una imagen base64, extraerla y remover del atributo
-                    try {
-                        const matches = value.match(/^data:image\/([a-zA-Z]*);base64,(.*)$/);
-                        if (matches && matches.length === 3) {
-                            const extension = matches[1];
-                            const base64Data = matches[2];
-                            
-                            // Crear buffer desde base64
-                            const imageBuffer = Buffer.from(base64Data, 'base64');
-                            
-                            // Generar nombre de archivo único
-                            const timestamp = Date.now();
-                            const filename = `producto_${productId}_orden_${orderId}_attr_${timestamp}_${extractedImages.length}.${extension}`;
-                            
-                            extractedImages.push({
-                                buffer: imageBuffer,
-                                filename: filename,
-                                path: currentPath,
-                                originalValue: value
-                            });
-                            
-                            // Remover la imagen base64 del atributo (dejar solo el nombre)
-                            if (key.toLowerCase().includes('imagen')) {
-                                // Si es un campo de imagen, conservar solo el nombre del archivo original
-                                const originalName = extractImageName(value);
-                                obj[key] = originalName || `imagen_${extractedImages.length}`;
-                            } else {
-                                // Si no es claramente un campo de imagen, eliminar completamente
-                                delete obj[key];
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Error al procesar imagen base64:', error);
-                    }
-                } else if (typeof value === 'object' && value !== null) {
-                    // Buscar recursivamente en objetos anidados
-                    if (value.preview && typeof value.preview === 'string' && value.preview.startsWith('data:image/')) {
-                        // Es un objeto con preview base64, extraer la imagen y limpiar el objeto
+                    // Verificar si ya procesamos esta imagen base64
+                    if (!processedImages.has(value)) {
+                        processedImages.add(value);
+                        
+                        // Es una imagen base64, extraerla y remover del atributo
                         try {
-                            const matches = value.preview.match(/^data:image\/([a-zA-Z]*);base64,(.*)$/);
+                            const matches = value.match(/^data:image\/([a-zA-Z]*);base64,(.*)$/);
                             if (matches && matches.length === 3) {
                                 const extension = matches[1];
                                 const base64Data = matches[2];
                                 
+                                // Crear buffer desde base64
                                 const imageBuffer = Buffer.from(base64Data, 'base64');
+                                
+                                // Generar nombre de archivo único
                                 const timestamp = Date.now();
-                                const filename = `producto_${productId}_orden_${orderId}_attr_${timestamp}_${extractedImages.length}.${extension}`;
+                                const randomId = Math.random().toString(36).substr(2, 9);
+                                const filename = `producto_${productId}_orden_${orderId}_attr_${timestamp}_${randomId}.${extension}`;
                                 
                                 extractedImages.push({
                                     buffer: imageBuffer,
                                     filename: filename,
-                                    path: `${currentPath}.preview`,
-                                    originalValue: value.preview
+                                    path: currentPath,
+                                    originalValue: value
                                 });
-                                
-                                // Limpiar el objeto, mantener solo propiedades útiles
-                                obj[key] = {
-                                    name: value.name || `imagen_${extractedImages.length}`,
-                                    size: value.size,
-                                    type: value.type
-                                };
                             }
                         } catch (error) {
-                            console.error('Error al procesar preview base64:', error);
+                            console.error('Error al procesar imagen base64:', error);
                         }
+                    }
+                    
+                    // Remover la imagen base64 del atributo (dejar solo el nombre)
+                    if (key.toLowerCase().includes('imagen')) {
+                        // Si es un campo de imagen, conservar solo el nombre del archivo original
+                        const originalName = extractImageName(value);
+                        obj[key] = originalName || `imagen_procesada_${extractedImages.length}`;
+                    } else {
+                        // Si no es claramente un campo de imagen, eliminar completamente
+                        delete obj[key];
+                    }
+                } else if (typeof value === 'object' && value !== null) {
+                    // Buscar recursivamente en objetos anidados
+                    if (value.preview && typeof value.preview === 'string' && value.preview.startsWith('data:image/')) {
+                        // Verificar duplicados en preview también
+                        if (!processedImages.has(value.preview)) {
+                            processedImages.add(value.preview);
+                            
+                            // Es un objeto con preview base64, extraer la imagen y limpiar el objeto
+                            try {
+                                const matches = value.preview.match(/^data:image\/([a-zA-Z]*);base64,(.*)$/);
+                                if (matches && matches.length === 3) {
+                                    const extension = matches[1];
+                                    const base64Data = matches[2];
+                                    
+                                    const imageBuffer = Buffer.from(base64Data, 'base64');
+                                    const timestamp = Date.now();
+                                    const randomId = Math.random().toString(36).substr(2, 9);
+                                    const filename = `producto_${productId}_orden_${orderId}_preview_${timestamp}_${randomId}.${extension}`;
+                                    
+                                    extractedImages.push({
+                                        buffer: imageBuffer,
+                                        filename: filename,
+                                        path: `${currentPath}.preview`,
+                                        originalValue: value.preview
+                                    });
+                                }
+                            } catch (error) {
+                                console.error('Error al procesar preview base64:', error);
+                            }
+                        }
+                        
+                        // Limpiar el objeto, mantener solo propiedades útiles
+                        obj[key] = {
+                            name: value.name || `imagen_${extractedImages.length}`,
+                            size: value.size,
+                            type: value.type
+                        };
                     } else {
                         // Continuar búsqueda recursiva
                         extractAndRemoveBase64Images(value, currentPath);
@@ -791,71 +786,65 @@ async function saveAllProductImages(allImages, productId, orderId, baseUrl) {
         return [];
     }
 
-    // Crear directorio en el escritorio para las imágenes de productos (ruta absoluta como facturas)
-    const desktopDir = require('os').homedir() + '/Desktop';
-    const uploadsDir = path.join(desktopDir, 'Uniformes_Imagenes', 'productos');
-
-    // Ensure directory exists
-    if (!fs.existsSync(uploadsDir)){
-        fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
     const savedImages = [];
 
     for (let i = 0; i < allImages.length; i++) {
         const imageItem = allImages[i];
-        let fullUrl, filename, filepath, imageBuffer;
+        let fullUrl;
 
-        if (imageItem.type === 'direct') {
-            // Es una imagen directa (archivo ya guardado por multer.diskStorage)
-            const file = imageItem.file;
-            fullUrl = `${baseUrl}/productos/${file.filename}`;
-            
-            // No necesitamos guardar el archivo, ya está guardado
-            savedImages.push({
-                type: imageItem.type,
-                url: fullUrl,
-                originalIndex: imageItem.index
-            });
-        } else if (imageItem.type === 'attribute') {
-            // Es una imagen de atributo (base64 convertida) - esta sí hay que guardarla manualmente
-            const image = imageItem.image;
-            
-            // Validar que la imagen tiene buffer
-            if (!image.buffer) {
-                console.error('Error: imagen de atributo no tiene buffer:', image);
-                continue;
+        try {
+            if (imageItem.type === 'direct') {
+                // Es una imagen directa (archivo de multer)
+                const file = imageItem.file;
+                
+                // Si viene de diskStorage, ya está guardado - crear objeto para saveFileWithFallback
+                if (file.filename && file.path) {
+                    // Para compatibilidad, usar la función saveFileWithFallback
+                    fullUrl = await saveFileWithFallback(file, 'productos', baseUrl);
+                } else {
+                    // Si viene de memoryStorage, usar directamente saveFileWithFallback
+                    fullUrl = await saveFileWithFallback(file, 'productos', baseUrl);
+                }
+                
+                savedImages.push({
+                    type: imageItem.type,
+                    url: fullUrl,
+                    originalIndex: imageItem.index
+                });
+                
+            } else if (imageItem.type === 'attribute') {
+                // Es una imagen de atributo (base64 convertida)
+                const image = imageItem.image;
+                
+                // Validar que la imagen tiene buffer
+                if (!image.buffer) {
+                    console.error('Error: imagen de atributo no tiene buffer:', image);
+                    continue;
+                }
+                
+                // Crear objeto de archivo simulado para saveFileWithFallback
+                const timestamp = Date.now();
+                const extension = image.filename.split('.').pop();
+                const filename = `producto_${productId}_orden_${orderId}_attr_${timestamp}_${i}.${extension}`;
+                
+                const fakeFile = {
+                    buffer: image.buffer,
+                    originalname: filename,
+                    mimetype: `image/${extension}`,
+                    filename: filename
+                };
+                
+                fullUrl = await saveFileWithFallback(fakeFile, 'productos', baseUrl);
+                
+                savedImages.push({
+                    type: imageItem.type,
+                    url: fullUrl,
+                    originalIndex: imageItem.index
+                });
             }
-            
-            const timestamp = Date.now();
-            const extension = image.filename.split('.').pop();
-            filename = `producto_${productId}_orden_${orderId}_attr_${timestamp}_${i}.${extension}`;
-            filepath = path.join(uploadsDir, filename);
-            imageBuffer = image.buffer;
-
-            // Guardar la imagen
-            const writeStream = fs.createWriteStream(filepath);
-            
-            await new Promise((resolve, reject) => {
-                writeStream.write(imageBuffer);
-                writeStream.end();
-                
-                writeStream.on('finish', () => {
-                    resolve();
-                });
-                
-                writeStream.on('error', (err) => {
-                    reject(err);
-                });
-            });
-            
-            // Crear URL completa como en las facturas
-            fullUrl = `${baseUrl}/productos/${filename}`;
-            savedImages.push({
-                type: imageItem.type,
-                url: fullUrl,
-                originalIndex: imageItem.index
-            });
+        } catch (error) {
+            console.error(`Error al guardar imagen ${i}:`, error);
+            // Continuar con las siguientes imágenes en lugar de fallar completamente
         }
     }
 
