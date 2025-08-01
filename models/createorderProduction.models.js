@@ -10,6 +10,34 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
     const client = await pool.connect();
     
     try {
+        // 🔍 DEBUGGING - Agregar al inicio para ver qué datos llegan
+        console.log('=== DEBUGGING DATOS RECIBIDOS ===');
+        console.log('Total productFiles:', productFiles?.length || 0);
+        console.log('Total products:', products?.length || 0);
+        
+        if (productFiles && productFiles.length > 0) {
+            productFiles.forEach((file, index) => {
+                console.log(`Archivo ${index}:`, {
+                    fieldname: file.fieldname,
+                    originalname: file.originalname,
+                    size: file.size,
+                    mimetype: file.mimetype
+                });
+            });
+        }
+        
+        if (products && products.length > 0) {
+            products.forEach((product, index) => {
+                console.log(`Producto ${index}:`, {
+                    id: product.id || product.idProducto,
+                    quantity: product.quantity || product.cantidad,
+                    fields: product.fields || product.atributosUsuario,
+                    fieldsKeys: product.fields ? Object.keys(product.fields) : (product.atributosUsuario ? Object.keys(product.atributosUsuario) : [])
+                });
+            });
+        }
+        console.log('=== FIN DEBUGGING ===');
+        
         // Start transaction
         await client.query('BEGIN');
         
@@ -50,16 +78,40 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
         for (let i = 0; i < products.length; i++) {
             const product = products[i];
             
-            const productImageFiles = productFiles ? productFiles.filter(file => 
-                file.fieldname === `productImages_${i}` || 
-                file.fieldname === `productImages[${i}]`
-            ) : [];
+            // Adaptar para nuevos nombres de campos del frontend
+            const productId = product.id || product.idProducto;
+            const quantity = product.quantity || product.cantidad;
+            const observations = product.observaciones || product.observacion || '';
+            const userAttributes = product.fields || product.atributosUsuario;
+            
+            console.log(`[DEBUG] Procesando producto ${i}: ID=${productId}, Cantidad=${quantity}`);
+            
+            // Mejorar el filtrado para evitar archivos duplicados
+            const productImageFiles = productFiles ? productFiles.filter((file, index, array) => {
+                const isForThisProduct = file.fieldname === `productImages_${i}` || 
+                                       file.fieldname === `productImages[${i}]`;
+                
+                // También filtrar por posición para evitar que el mismo archivo aparezca múltiples veces
+                if (isForThisProduct) {
+                    const firstIndex = array.findIndex(f => 
+                        f.originalname === file.originalname && 
+                        f.size === file.size && 
+                        (f.fieldname === `productImages_${i}` || f.fieldname === `productImages[${i}]`)
+                    );
+                    return index === firstIndex; // Solo mantener la primera ocurrencia
+                }
+                return false;
+            }) : [];
+            
+            console.log(`[DEBUG] Producto ${i}: ${productImageFiles.length} archivos de imagen encontrados después del filtrado`);
             
             const { cleanedAttributes, extractedImages } = await processUserAttributesImages(
-                product.atributosUsuario, 
-                product.idProducto, 
+                userAttributes, 
+                productId, 
                 orderId
             );
+
+            console.log(`[DEBUG] Producto ${i}: ${extractedImages.length} imágenes extraídas de atributos`);
 
             // El bordado se mantiene dentro de los atributos de usuario, no se extrae como campo separado
             let hasBordado = false;
@@ -82,9 +134,12 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
             
             // Agregar imágenes directas (archivos subidos) - solo si no están duplicadas
             if (productImageFiles.length > 0) {
+                console.log(`[DEBUG] Procesando ${productImageFiles.length} archivos directos de imagen`);
                 for (let j = 0; j < productImageFiles.length; j++) {
                     const file = productImageFiles[j];
                     const imageHash = createImageHash(file.buffer);
+                    
+                    console.log(`[DEBUG] Archivo ${j}: fieldname=${file.fieldname}, hash=${imageHash}`);
                     
                     if (!processedImageHashes.has(imageHash)) {
                         processedImageHashes.add(imageHash);
@@ -94,15 +149,21 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                             index: j,
                             hash: imageHash
                         });
+                        console.log(`[DEBUG] Imagen directa agregada (hash único): ${imageHash}`);
+                    } else {
+                        console.log(`[DEBUG] Imagen directa omitida (hash duplicado): ${imageHash}`);
                     }
                 }
             }
             
             // Agregar imágenes extraídas de atributos (base64) - solo si no están duplicadas
             if (extractedImages.length > 0) {
+                console.log(`[DEBUG] Procesando ${extractedImages.length} imágenes de atributos`);
                 for (let j = 0; j < extractedImages.length; j++) {
                     const image = extractedImages[j];
                     const imageHash = createImageHash(image.buffer);
+                    
+                    console.log(`[DEBUG] Atributo ${j}: filename=${image.filename}, hash=${imageHash}`);
                     
                     if (!processedImageHashes.has(imageHash)) {
                         processedImageHashes.add(imageHash);
@@ -112,27 +173,35 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                             index: productImageFiles.length + j,
                             hash: imageHash
                         });
+                        console.log(`[DEBUG] Imagen de atributo agregada (hash único): ${imageHash}`);
+                    } else {
+                        console.log(`[DEBUG] Imagen de atributo omitida (hash duplicado): ${imageHash}`);
                     }
                 }
             }
             
+            console.log(`[DEBUG] Total de imágenes únicas a procesar: ${allProductImages.length}`);
+            
             // Guardar todas las imágenes en una sola operación
             let allImageUrls = [];
             if (allProductImages.length > 0) {
-                allImageUrls = await saveAllProductImages(allProductImages, product.idProducto, orderId, baseUrl);
+                allImageUrls = await saveAllProductImages(allProductImages, productId, orderId, baseUrl);
             }
             
             // Combinar todas las URLs para url_producto (sin distinguir tipo)
             const combinedImageUrls = allImageUrls.map(img => img.url);
             
+            console.log(`[DEBUG] URLs finales para producto ${i}: ${combinedImageUrls.length} URLs`);
+            console.log(`[DEBUG] URLs: ${combinedImageUrls.join(', ')}`);
+            
             // Insertar el producto en detalle_producto_orden (sin columna bordado)
             const detailId = await addProductToOrder(
                 client,
                 orderId,
-                product.idProducto,
-                product.cantidad,
+                productId,
+                quantity,
                 cleanedAttributes, 
-                product.observacion,
+                observations,
                 combinedImageUrls 
             );
             
@@ -141,23 +210,23 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 `INSERT INTO producto_proceso(
                     id_detalle_producto, id_detalle_proceso, cantidad
                 ) VALUES ($1, $2, $3)`,
-                [detailId, processId, product.cantidad]
+                [detailId, processId, quantity]
             );
             
             // Obtener el nombre del producto para la respuesta
             const productResult = await client.query(
                 'SELECT nombre_producto FROM producto WHERE id_producto = $1',
-                [product.idProducto]
+                [productId]
             );
             
             productDetails.push({
                 id_detalle: detailId,
                 id_orden: orderId,
-                id_producto: product.idProducto,
-                cantidad: product.cantidad,
+                id_producto: productId,
+                cantidad: quantity,
                 atributosusuario: cleanedAttributes, 
                 bordado: hasBordado, // Mantener en la respuesta para compatibilidad
-                observacion: product.observacion,
+                observacion: observations,
                 url_producto: combinedImageUrls.join(','), 
                 imagenes: combinedImageUrls, 
                 estado: 'En Producción',
@@ -680,6 +749,7 @@ async function processUserAttributesImages(userAttributes, productId, orderId) {
                 const value = obj[key];
                 const currentPath = path ? `${path}.${key}` : key;
                 
+                // Caso 1: String que es base64 (formato anterior)
                 if (typeof value === 'string' && value.startsWith('data:image/')) {
                     // Verificar si ya procesamos esta imagen base64
                     if (!processedImages.has(value)) {
@@ -721,7 +791,19 @@ async function processUserAttributesImages(userAttributes, productId, orderId) {
                         // Si no es claramente un campo de imagen, eliminar completamente
                         delete obj[key];
                     }
-                } else if (typeof value === 'object' && value !== null) {
+                }
+                // Caso 2: String que es nombre de archivo (nuevo formato)
+                else if (typeof value === 'string' && 
+                         key.toLowerCase().includes('imagen') && 
+                         !value.startsWith('data:') && 
+                         value.trim() !== '') {
+                    
+                    console.log(`[DEBUG] Campo de imagen encontrado (nombre de archivo): ${key} = ${value}`);
+                    // Mantener el nombre del archivo tal como está - no hacer nada
+                    // El archivo se procesará por separado en productFiles
+                }
+                // Caso 3: Objeto con preview (formato anterior)
+                else if (typeof value === 'object' && value !== null) {
                     // Buscar recursivamente en objetos anidados
                     if (value.preview && typeof value.preview === 'string' && value.preview.startsWith('data:image/')) {
                         // Verificar duplicados en preview también
@@ -779,7 +861,6 @@ function extractImageName(base64String) {
     return null;
 }
 
-// Función para guardar imágenes extraídas de atributos
 // Función unificada para guardar todas las imágenes de un producto (directas + atributos)
 async function saveAllProductImages(allImages, productId, orderId, baseUrl) {
     if (!allImages || allImages.length === 0) {
@@ -787,29 +868,28 @@ async function saveAllProductImages(allImages, productId, orderId, baseUrl) {
     }
 
     const savedImages = [];
+    console.log(`[DEBUG] Procesando ${allImages.length} imágenes para producto ${productId}, orden ${orderId}`);
 
     for (let i = 0; i < allImages.length; i++) {
         const imageItem = allImages[i];
         let fullUrl;
 
         try {
+            console.log(`[DEBUG] Procesando imagen ${i + 1}/${allImages.length}, tipo: ${imageItem.type}, hash: ${imageItem.hash}`);
+            
             if (imageItem.type === 'direct') {
                 // Es una imagen directa (archivo de multer)
                 const file = imageItem.file;
                 
-                // Si viene de diskStorage, ya está guardado - crear objeto para saveFileWithFallback
-                if (file.filename && file.path) {
-                    // Para compatibilidad, usar la función saveFileWithFallback
-                    fullUrl = await saveFileWithFallback(file, 'productos', baseUrl);
-                } else {
-                    // Si viene de memoryStorage, usar directamente saveFileWithFallback
-                    fullUrl = await saveFileWithFallback(file, 'productos', baseUrl);
-                }
+                // Guardar usando saveFileWithFallback UNA SOLA VEZ
+                fullUrl = await saveFileWithFallback(file, 'productos', baseUrl);
+                console.log(`[DEBUG] Imagen directa guardada: ${fullUrl}`);
                 
                 savedImages.push({
                     type: imageItem.type,
                     url: fullUrl,
-                    originalIndex: imageItem.index
+                    originalIndex: imageItem.index,
+                    hash: imageItem.hash
                 });
                 
             } else if (imageItem.type === 'attribute') {
@@ -835,11 +915,13 @@ async function saveAllProductImages(allImages, productId, orderId, baseUrl) {
                 };
                 
                 fullUrl = await saveFileWithFallback(fakeFile, 'productos', baseUrl);
+                console.log(`[DEBUG] Imagen de atributo guardada: ${fullUrl}`);
                 
                 savedImages.push({
                     type: imageItem.type,
                     url: fullUrl,
-                    originalIndex: imageItem.index
+                    originalIndex: imageItem.index,
+                    hash: imageItem.hash
                 });
             }
         } catch (error) {
@@ -848,6 +930,7 @@ async function saveAllProductImages(allImages, productId, orderId, baseUrl) {
         }
     }
 
+    console.log(`[DEBUG] Total de imágenes guardadas: ${savedImages.length}`);
     return savedImages;
 }
 
