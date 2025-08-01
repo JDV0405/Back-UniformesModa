@@ -27,12 +27,6 @@ app.use(cors({
   credentials: true,
 }));
 
-// Log del estado de Azure Blob Storage
-if (isAzureBlobAvailable()) {
-  console.log('✅ Azure Blob Storage configurado - Las imágenes se guardarán en Azure');
-} else {
-  console.log('⚠️  Azure Blob Storage NO configurado - Las imágenes se guardarán localmente');
-}
 
 app.get('/test-azure-storage', async (req, res) => {
     try {

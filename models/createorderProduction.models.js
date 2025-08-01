@@ -10,33 +10,6 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
     const client = await pool.connect();
     
     try {
-        // 🔍 DEBUGGING - Agregar al inicio para ver qué datos llegan
-        console.log('=== DEBUGGING DATOS RECIBIDOS ===');
-        console.log('Total productFiles:', productFiles?.length || 0);
-        console.log('Total products:', products?.length || 0);
-        
-        if (productFiles && productFiles.length > 0) {
-            productFiles.forEach((file, index) => {
-                console.log(`Archivo ${index}:`, {
-                    fieldname: file.fieldname,
-                    originalname: file.originalname,
-                    size: file.size,
-                    mimetype: file.mimetype
-                });
-            });
-        }
-        
-        if (products && products.length > 0) {
-            products.forEach((product, index) => {
-                console.log(`Producto ${index}:`, {
-                    id: product.id || product.idProducto,
-                    quantity: product.quantity || product.cantidad,
-                    fields: product.fields || product.atributosUsuario,
-                    fieldsKeys: product.fields ? Object.keys(product.fields) : (product.atributosUsuario ? Object.keys(product.atributosUsuario) : [])
-                });
-            });
-        }
-        console.log('=== FIN DEBUGGING ===');
         
         // Start transaction
         await client.query('BEGIN');
@@ -84,7 +57,6 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
             const observations = product.observaciones || product.observacion || '';
             const userAttributes = product.fields || product.atributosUsuario;
             
-            console.log(`[DEBUG] Procesando producto ${i}: ID=${productId}, Cantidad=${quantity}`);
             
             // Mejorar el filtrado para evitar archivos duplicados
             const productImageFiles = productFiles ? productFiles.filter((file, index, array) => {
@@ -103,7 +75,6 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 return false;
             }) : [];
             
-            console.log(`[DEBUG] Producto ${i}: ${productImageFiles.length} archivos de imagen encontrados después del filtrado`);
             
             const { cleanedAttributes, extractedImages } = await processUserAttributesImages(
                 userAttributes, 
@@ -111,7 +82,6 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                 orderId
             );
 
-            console.log(`[DEBUG] Producto ${i}: ${extractedImages.length} imágenes extraídas de atributos`);
 
             // El bordado se mantiene dentro de los atributos de usuario, no se extrae como campo separado
             let hasBordado = false;
@@ -134,12 +104,9 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
             
             // Agregar imágenes directas (archivos subidos) - solo si no están duplicadas
             if (productImageFiles.length > 0) {
-                console.log(`[DEBUG] Procesando ${productImageFiles.length} archivos directos de imagen`);
                 for (let j = 0; j < productImageFiles.length; j++) {
                     const file = productImageFiles[j];
                     const imageHash = createImageHash(file.buffer);
-                    
-                    console.log(`[DEBUG] Archivo ${j}: fieldname=${file.fieldname}, hash=${imageHash}`);
                     
                     if (!processedImageHashes.has(imageHash)) {
                         processedImageHashes.add(imageHash);
@@ -149,21 +116,15 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                             index: j,
                             hash: imageHash
                         });
-                        console.log(`[DEBUG] Imagen directa agregada (hash único): ${imageHash}`);
-                    } else {
-                        console.log(`[DEBUG] Imagen directa omitida (hash duplicado): ${imageHash}`);
                     }
                 }
             }
             
             // Agregar imágenes extraídas de atributos (base64) - solo si no están duplicadas
             if (extractedImages.length > 0) {
-                console.log(`[DEBUG] Procesando ${extractedImages.length} imágenes de atributos`);
                 for (let j = 0; j < extractedImages.length; j++) {
                     const image = extractedImages[j];
                     const imageHash = createImageHash(image.buffer);
-                    
-                    console.log(`[DEBUG] Atributo ${j}: filename=${image.filename}, hash=${imageHash}`);
                     
                     if (!processedImageHashes.has(imageHash)) {
                         processedImageHashes.add(imageHash);
@@ -173,14 +134,9 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
                             index: productImageFiles.length + j,
                             hash: imageHash
                         });
-                        console.log(`[DEBUG] Imagen de atributo agregada (hash único): ${imageHash}`);
-                    } else {
-                        console.log(`[DEBUG] Imagen de atributo omitida (hash duplicado): ${imageHash}`);
-                    }
+                    } 
                 }
             }
-            
-            console.log(`[DEBUG] Total de imágenes únicas a procesar: ${allProductImages.length}`);
             
             // Guardar todas las imágenes en una sola operación
             let allImageUrls = [];
@@ -190,9 +146,6 @@ async function createOrder(orderData, clientData, products, paymentInfo, payment
             
             // Combinar todas las URLs para url_producto (sin distinguir tipo)
             const combinedImageUrls = allImageUrls.map(img => img.url);
-            
-            console.log(`[DEBUG] URLs finales para producto ${i}: ${combinedImageUrls.length} URLs`);
-            console.log(`[DEBUG] URLs: ${combinedImageUrls.join(', ')}`);
             
             // Insertar el producto en detalle_producto_orden (sin columna bordado)
             const detailId = await addProductToOrder(
@@ -875,15 +828,12 @@ async function saveAllProductImages(allImages, productId, orderId, baseUrl) {
         let fullUrl;
 
         try {
-            console.log(`[DEBUG] Procesando imagen ${i + 1}/${allImages.length}, tipo: ${imageItem.type}, hash: ${imageItem.hash}`);
-            
             if (imageItem.type === 'direct') {
                 // Es una imagen directa (archivo de multer)
                 const file = imageItem.file;
                 
                 // Guardar usando saveFileWithFallback UNA SOLA VEZ
                 fullUrl = await saveFileWithFallback(file, 'productos', baseUrl);
-                console.log(`[DEBUG] Imagen directa guardada: ${fullUrl}`);
                 
                 savedImages.push({
                     type: imageItem.type,
@@ -915,8 +865,6 @@ async function saveAllProductImages(allImages, productId, orderId, baseUrl) {
                 };
                 
                 fullUrl = await saveFileWithFallback(fakeFile, 'productos', baseUrl);
-                console.log(`[DEBUG] Imagen de atributo guardada: ${fullUrl}`);
-                
                 savedImages.push({
                     type: imageItem.type,
                     url: fullUrl,
@@ -930,7 +878,6 @@ async function saveAllProductImages(allImages, productId, orderId, baseUrl) {
         }
     }
 
-    console.log(`[DEBUG] Total de imágenes guardadas: ${savedImages.length}`);
     return savedImages;
 }
 
