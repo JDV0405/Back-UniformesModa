@@ -733,7 +733,6 @@ const convertImageToBase64 = (imagePath) => {
     
     return null;
   } catch (error) {
-    console.log('Error al convertir imagen a base64:', error);
     return null;
   }
 };

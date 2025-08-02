@@ -13,7 +13,6 @@ let blobServiceClient = null;
 try {
     if (AZURE_STORAGE_CONNECTION_STRING) {
         blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
-        console.log('✅ Azure Blob Storage configurado correctamente');
     }
 } catch (error) {
     console.error('❌ Error al configurar Azure Blob Storage:', error.message);
@@ -51,7 +50,6 @@ async function uploadToBlob(fileBuffer, fileName, folder = '', contentType = 'ap
             }
         });
 
-        console.log(`✅ Archivo subido a Azure Blob: ${blobName}`);
         return blockBlobClient.url;
 
     } catch (error) {
@@ -81,7 +79,6 @@ async function deleteFromBlob(blobUrl) {
         const blockBlobClient = containerClient.getBlockBlobClient(blobName);
         await blockBlobClient.deleteIfExists();
 
-        console.log(`✅ Archivo eliminado de Azure Blob: ${blobName}`);
         return true;
 
     } catch (error) {

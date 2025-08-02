@@ -751,9 +751,6 @@ async function processUserAttributesImages(userAttributes, productId, orderId) {
                          !value.startsWith('data:') && 
                          value.trim() !== '') {
                     
-                    console.log(`[DEBUG] Campo de imagen encontrado (nombre de archivo): ${key} = ${value}`);
-                    // Mantener el nombre del archivo tal como está - no hacer nada
-                    // El archivo se procesará por separado en productFiles
                 }
                 // Caso 3: Objeto con preview (formato anterior)
                 else if (typeof value === 'object' && value !== null) {
@@ -821,7 +818,6 @@ async function saveAllProductImages(allImages, productId, orderId, baseUrl) {
     }
 
     const savedImages = [];
-    console.log(`[DEBUG] Procesando ${allImages.length} imágenes para producto ${productId}, orden ${orderId}`);
 
     for (let i = 0; i < allImages.length; i++) {
         const imageItem = allImages[i];
