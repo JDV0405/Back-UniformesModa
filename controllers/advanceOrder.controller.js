@@ -2,22 +2,10 @@ const AdvanceOrderModel = require('../models/advanceOrder.models');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { saveFileWithFallback } = require('../config/azureStorage');
 
-// Configuración de multer para archivos de factura
-const facturaStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = 'C:\\Users\\Asus\\Desktop\\Uniformes_Imagenes\\facturas';
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const extension = path.extname(file.originalname);
-    cb(null, `factura-${uniqueSuffix}${extension}`);
-  }
-});
+// Configuración de multer para usar memoria (para Azure Blob Storage)
+const facturaStorage = multer.memoryStorage();
 
 const uploadFactura = multer({
   storage: facturaStorage,
@@ -262,15 +250,27 @@ class AdvanceOrderController {
             });
           }
           
-          // Crear la URL del archivo
-          const baseUrl = `${req.protocol}://${req.get('host')}`;
-          const facturaUrl = `${baseUrl}/facturas/${req.file.filename}`;
-          
-          facturaData = {
-            numero_factura,
-            url_factura: facturaUrl,
-            observaciones: observaciones_factura || null
-          };
+          try {
+            // Usar Azure Blob Storage con fallback local
+            const baseUrl = `${req.protocol}://${req.get('host')}`;
+            console.log(`📄 Subiendo factura: ${req.file.originalname} (${req.file.size} bytes)`);
+            
+            const facturaUrl = await saveFileWithFallback(req.file, 'facturas', baseUrl);
+            
+            console.log(`✅ Factura guardada exitosamente en: ${facturaUrl}`);
+            
+            facturaData = {
+              numero_factura,
+              url_factura: facturaUrl,
+              observaciones: observaciones_factura || null
+            };
+          } catch (uploadError) {
+            console.error(`❌ Error al guardar factura: ${uploadError.message}`);
+            return res.status(500).json({
+              success: false,
+              message: `Error al guardar archivo de factura: ${uploadError.message}`
+            });
+          }
         }
         
         await AdvanceOrderModel.advanceProductsToNextProcess({
@@ -290,14 +290,8 @@ class AdvanceOrderController {
           ...(facturaData && { facturaCreada: facturaData })
         });
       } catch (error) {
-        // Si hay error y se subió un archivo, eliminarlo
-        if (req.file) {
-          try {
-            fs.unlinkSync(req.file.path);
-          } catch (unlinkError) {
-            console.error('Error al eliminar archivo:', unlinkError);
-          }
-        }
+        // Nota: Con Azure Blob Storage usando memoryStorage, no hay archivos locales que eliminar
+        // Si se implementa rollback de Azure, se podría agregar aquí
         
         // Manejar errores específicos de validación
         if (error.message.includes('Ya existe una factura con el número')) {
