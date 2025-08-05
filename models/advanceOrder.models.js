@@ -475,11 +475,34 @@ class AdvanceOrderModel {
       const cantidadesResult = await db.query(cantidadesActualesQuery, 
         [itemIds, idOrdenInt, idProcesoActualInt]);
       
+      // Debug logging - TODO: remover en producción
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Debug - Productos encontrados en BD:', cantidadesResult.rows.map(row => ({
+          id_detalle_producto: row.id_detalle_producto,
+          cantidad: row.cantidad,
+          id_confeccionista: row.id_confeccionista,
+          nombre_producto: row.nombre_producto
+        })));
+        
+        console.log('Debug - Items a avanzar:', itemsToAdvance.map(item => ({
+          idDetalle: item.idDetalle,
+          cantidadAvanzar: item.cantidadAvanzar,
+          idConfeccionista: item.idConfeccionista
+        })));
+      }
+      
       // Crear mapa para acceso O(1)
       const cantidadesMap = new Map();
       cantidadesResult.rows.forEach(row => {
-        const key = `${row.id_detalle_producto}_${row.id_confeccionista || 'null'}`;
-        cantidadesMap.set(key, row);
+        // Para cortes (proceso 3), el confeccionista siempre es null en el proceso actual
+        // Por eso creamos claves múltiples para asegurar que encontremos el producto
+        const keyWithConfeccionista = `${row.id_detalle_producto}_${row.id_confeccionista || 'null'}`;
+        const keyWithoutConfeccionista = `${row.id_detalle_producto}_null`;
+        const keySimple = `${row.id_detalle_producto}`;
+        
+        cantidadesMap.set(keyWithConfeccionista, row);
+        cantidadesMap.set(keyWithoutConfeccionista, row);
+        cantidadesMap.set(keySimple, row);
       });
 
       // 3. Procesar cada producto con lógica de múltiples destinos
@@ -628,10 +651,27 @@ class AdvanceOrderModel {
           }
         } else {          
           // OPTIMIZACIÓN: Usar datos del mapa en lugar de consultas individuales
-          const mapKey = `${idDetalleInt}_${idConfeccionistaInt || 'null'}`;
-          const cantidadInfo = cantidadesMap.get(mapKey);
+          // Intentar múltiples claves para encontrar el producto
+          let cantidadInfo = null;
+          
+          // Si estamos saliendo de cortes (proceso 3), el confeccionista en origen es null
+          if (idProcesoActualInt === 3) {
+            cantidadInfo = cantidadesMap.get(`${idDetalleInt}_null`) || 
+                          cantidadesMap.get(`${idDetalleInt}`);
+          } else {
+            // Para otros procesos, intentar con el confeccionista especificado
+            const mapKey = `${idDetalleInt}_${idConfeccionistaInt || 'null'}`;
+            cantidadInfo = cantidadesMap.get(mapKey) || 
+                          cantidadesMap.get(`${idDetalleInt}_null`) ||
+                          cantidadesMap.get(`${idDetalleInt}`);
+          }
           
           if (!cantidadInfo) {
+            // Agregar debug información - TODO: remover en producción
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('Debug - cantidadesMap keys:', Array.from(cantidadesMap.keys()));
+              console.log('Debug - Buscando:', { idDetalle: idDetalleInt, idConfeccionista: idConfeccionistaInt, proceso: idProcesoActualInt });
+            }
             throw new Error(`No se encontró el producto ${idDetalleInt} en el proceso actual`);
           }
           
