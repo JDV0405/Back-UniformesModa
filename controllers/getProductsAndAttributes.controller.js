@@ -7,7 +7,6 @@ const {
 } = require('../models/getProductsAndAttributes.models');
 const pool = require('../database/db.js');
 
-// Controller to get products, colors, and patterns by category
 const getProductsInfoByCategory = async (req, res) => {
   try {
     const { categoryId } = req.params;
@@ -42,7 +41,6 @@ const getProductsInfoByCategory = async (req, res) => {
   }
 };
 
-// Controller to get cities by department
 const getCitiesByDepartmentController = async (req, res) => {
   try {
     const { departmentId } = req.params;
@@ -88,7 +86,7 @@ const getAssesorEmployeeController = async (req, res) => {
 
 const getEmployeesByRoleController = async (req, res) => {
   try {
-    const { keywords } = req.body; // Array de palabras clave
+    const { keywords } = req.body; 
     
     if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
       return res.status(400).json({ 

@@ -10,7 +10,7 @@ const {
 } = require('../middlewares/rateLimiting.middleware');
 
 router.use(authMiddleware);
-router.use(generalLimiter); // Aplicar rate limiting general a todas las rutas
+router.use(generalLimiter); 
 /**
  * @swagger
  * /api/advance/orden/{idOrden}:
@@ -236,7 +236,7 @@ router.get('/orden/:idOrden/proceso/:idProceso', advanceOrderController.getProdu
  *       500:
  *         description: Error del servidor
  */
-router.post('/advance', advanceProductsLimiter, uploadLimiter, advanceOrderController.advanceProducts);
+router.post('/advance', advanceProductsLimiter, advanceOrderController.advanceProducts);
 
 /**
  * @swagger

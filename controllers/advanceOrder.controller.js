@@ -119,7 +119,6 @@ class AdvanceOrderController {
     }
   }
 
-  // Obtener productos con todos sus confeccionistas asignados
   async getProductsWithAllConfeccionistas(req, res) {
     try {
       const { idOrden, idProceso } = req.params;
@@ -145,7 +144,6 @@ class AdvanceOrderController {
     }
   }
 
- //Avanza productos al siguiente proceso (MODIFICADO)
   async advanceProducts(req, res) {
     // Configurar multer para este endpoint específico
     const upload = uploadFactura.single('factura_file');
@@ -253,11 +251,9 @@ class AdvanceOrderController {
           try {
             // Usar Azure Blob Storage con fallback local
             const baseUrl = `${req.protocol}://${req.get('host')}`;
-            console.log(`📄 Subiendo factura: ${req.file.originalname} (${req.file.size} bytes)`);
             
             const facturaUrl = await saveFileWithFallback(req.file, 'facturas', baseUrl);
             
-            console.log(`✅ Factura guardada exitosamente en: ${facturaUrl}`);
             
             facturaData = {
               numero_factura,
@@ -386,7 +382,7 @@ class AdvanceOrderController {
       });
     }
   }
-  // Obtener el detalle de una orden completada
+
   async getCompletedOrderDetail(req, res) {
     try {
       const { idOrden } = req.params;
@@ -412,7 +408,7 @@ class AdvanceOrderController {
       });
     }
   }
-  // Obtener confeccionistas activos
+
   async getActiveConfeccionistas(req, res) {
     try {
       const confeccionistas = await AdvanceOrderModel.getActiveConfeccionistas();
@@ -429,7 +425,6 @@ class AdvanceOrderController {
     }
   }
 
-  // Obtener procesos disponibles desde confección
   async getAvailableProcessesFromConfeccion(req, res) {
     try {
       const procesos = await AdvanceOrderModel.getAvailableProcessesFromConfeccion();
@@ -446,7 +441,6 @@ class AdvanceOrderController {
     }
   }
 
-  // Avanzar productos desde confección con bifurcación
   async advanceProductsFromConfeccion(req, res) {
     try {
       const { 
@@ -518,7 +512,7 @@ class AdvanceOrderController {
       await AdvanceOrderModel.advanceProductsToNextProcess({
         idOrden, 
         idProcesoActual, 
-        idProcesoSiguiente: null, // null indica que se usarán solo los destinos específicos
+        idProcesoSiguiente: null, 
         cedulaEmpleadoActual,
         itemsToAdvance,
         observaciones,
@@ -537,7 +531,6 @@ class AdvanceOrderController {
     }
   }
 
-  // Obtener facturas de una orden específica
   async getOrderFacturas(req, res) {
     try {
       const { idOrden } = req.params;
@@ -563,7 +556,6 @@ class AdvanceOrderController {
     }
   }
 
-  // Obtener historial de un proceso específico
   async getProcessEmployeeHistory(req, res) {
     try {
       const { idDetalleProceso } = req.params;
@@ -589,7 +581,6 @@ class AdvanceOrderController {
     }
   }
 
-  // Obtener log completo de auditoría
   async getOrderAuditLog(req, res) {
     try {
       const { idOrden } = req.params;
@@ -615,7 +606,6 @@ class AdvanceOrderController {
     }
   }
 
-  // Obtener historial detallado de empleados con productos específicos
   async getDetailedEmployeeAdvanceHistory(req, res) {
     try {
       const { idOrden } = req.params;

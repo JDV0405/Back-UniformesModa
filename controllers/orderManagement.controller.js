@@ -196,7 +196,6 @@ const OrderController = {
     }
   },
 
-  
   getOrderDetails: async (req, res) => {
     try {
       const { idOrden } = req.params;

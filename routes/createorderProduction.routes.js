@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const orderController = require('../controllers/createorderProduction.controller');
+const { 
+  strictLimiter
+} = require('../middlewares/rateLimiting.middleware');
 
-
-router.post('/createOrder', 
-    orderController.uploadMiddleware, 
-    orderController.createOrder
+router.post('/createOrder', strictLimiter, orderController.uploadMiddleware, orderController.createOrder
 );
 
 /**

@@ -27,7 +27,7 @@ const strictLimiter = rateLimit({
 // Rate limiting específico para avance de productos
 const advanceProductsLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutos
-  max: 10, // máximo 10 avances por IP en 5 minutos
+  max: 20, // máximo 10 avances por IP en 5 minutos
   message: {
     success: false,
     message: 'Demasiados intentos de avance de productos. Intenta de nuevo en 5 minutos.'
@@ -39,7 +39,7 @@ const advanceProductsLimiter = rateLimit({
 // Rate limiting para uploads de archivos
 const uploadLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutos
-  max: 5, // máximo 5 uploads por IP en 10 minutos
+  max: 20, // máximo 5 uploads por IP en 10 minutos
   message: {
     success: false,
     message: 'Demasiados uploads de archivos. Intenta de nuevo en 10 minutos.'

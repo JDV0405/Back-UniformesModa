@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const orderUserController = require('../controllers/orderUsers.controller.js');
+const { 
+  generalLimiter, 
+  strictLimiter
+} = require('../middlewares/rateLimiting.middleware');
 
 /**
  * @swagger
@@ -132,7 +136,7 @@ router.get('/customer/:clienteId', orderUserController.getOrdersByClientId);
  *       500:
  *         description: Error al obtener los detalles de la orden
  */
-router.get('/:orderId', orderUserController.getOrderDetails);
+router.get('/:orderId',strictLimiter, orderUserController.getOrderDetails);
 
 /**
  * @swagger

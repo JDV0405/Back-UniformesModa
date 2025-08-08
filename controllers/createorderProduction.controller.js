@@ -5,7 +5,6 @@ const path = require('path');
 const fs = require('fs');
 const { isAzureBlobAvailable } = require('../config/azureStorage');
 
-// Configuración de storage: usar memoryStorage para Azure Blob, diskStorage como fallback
 const storage = isAzureBlobAvailable() ? 
     multer.memoryStorage() : 
     multer.diskStorage({
@@ -71,7 +70,6 @@ const uploadMiddleware = upload.fields(createFieldsConfig(50));
 
 async function createOrder(req, res) {
     try {
-        // ✅ PARSEAR JSON STRINGS SI VIENEN DE FORMDATA
         if (typeof req.body.customer === 'string') {
             try {
                 req.body.customer = JSON.parse(req.body.customer);
@@ -123,14 +121,12 @@ async function createOrder(req, res) {
             
             employeeId = employeeResult.rows[0].cedula;
             
-            // Prepare order data
             orderData = {
                 fechaAproximada: new Date(customerData.orderDate) || new Date(),
                 observaciones: customerData.observaciones || '',
                 cedulaEmpleadoResponsable: employeeId
             };
             
-            // Prepare client data
             clientData = {
                 cedula: customerData.identification,
                 nombre: customerData.name,
@@ -144,7 +140,6 @@ async function createOrder(req, res) {
                 ciudad: customerData.ciudad,
             };
             
-            // Add client type specific data
             if (clientData.tipo === 'Natural') {
                 clientData.tipoDoc = 'Cedula de Ciudadania';
                 clientData.profesion = customerData.profession || '';
@@ -152,7 +147,6 @@ async function createOrder(req, res) {
                 clientData.sectorEconomico = customerData.sector || '';
             }
             
-            // Transform products
             products = productsData.map(product => ({
                 idProducto: product.id,
                 cantidad: product.quantity,
@@ -161,13 +155,11 @@ async function createOrder(req, res) {
                 urlProducto: null
             }));
             
-            // Set payment info
             paymentInfo = {
                 tipoPago: req.body.paymentType || 'credito'
             };
             
         } else {
-            // Process legacy format
             if (!req.body.cedulaEmpleadoResponsable) {
                 return res.status(400).json({
                     success: false,
@@ -253,11 +245,10 @@ async function createOrder(req, res) {
         // Extraer archivos de imágenes de productos
         const productFiles = [];
         if (req.files) {
-            // Recopilar todos los archivos de imágenes de productos
             Object.keys(req.files).forEach(fieldName => {
                 if (fieldName.startsWith('productImages')) {
                     req.files[fieldName].forEach(file => {
-                        file.fieldname = fieldName; // Preservar nombre del campo
+                        file.fieldname = fieldName; 
                         productFiles.push(file);
                     });
                 }
@@ -367,7 +358,7 @@ const deleteOrder = async (req, res) => {
 const deactivateOrder = async (req, res) => {
     try {
         const { orderId } = req.params;
-        const { motivo } = req.body; // Obtener el motivo del cuerpo de la petición
+        const { motivo } = req.body; 
         
         // Verificar que se proporcionó el ID de la orden
         if (!orderId) {
