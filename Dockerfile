@@ -1,22 +1,29 @@
-# Imagen base oficial de Node.js
-FROM node:22
+# Usar imagen Alpine (mucho más liviana ~150MB vs ~1GB)
+FROM node:22-alpine
 
-# Carpeta de trabajo dentro del contenedor
+# Instalar dependencias necesarias para bcrypt y otras librerías nativas
+RUN apk add --no-cache python3 make g++
+
 WORKDIR /app
 
-# Copia los archivos necesarios para instalar dependencias
+# Copiar archivos de dependencias
 COPY package*.json ./
-RUN npm install
 
-# Copia el resto del código de la app
+# Instalar solo dependencias de producción
+RUN npm ci --only=production && npm cache clean --force
+
+# Copiar el código de la aplicación
 COPY . .
 
-# Variables de entorno por defecto (pueden ser sobrescritas en el deployment)
+# Variables de entorno
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Expón el puerto en el que corre tu backend
+# Crear usuario no-root para seguridad
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nextjs -u 1001
+USER nextjs
+
 EXPOSE 3000
 
-# Comando para ejecutar tu app
 CMD ["node", "app.js"]
