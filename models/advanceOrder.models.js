@@ -1184,18 +1184,14 @@ class AdvanceOrderModel {
     try {
       const query = `
         SELECT 
-          COUNT(*) AS total_products,
-          SUM(CASE WHEN latest_process.id_proceso = $2 THEN 1 ELSE 0 END) AS products_in_delivery
+          dpo.id_detalle,
+          dpo.cantidad as cantidad_total,
+          COALESCE(SUM(CASE WHEN dp.id_proceso = $2 AND dp.estado = 'En Proceso' THEN pp.cantidad ELSE 0 END), 0) as cantidad_en_entrega
         FROM detalle_producto_orden dpo
-        LEFT JOIN LATERAL (
-          SELECT dp.id_proceso
-          FROM producto_proceso pp
-          JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
-          WHERE pp.id_detalle_producto = dpo.id_detalle
-          ORDER BY dp.fecha_inicio_proceso DESC
-          LIMIT 1
-        ) latest_process ON true
+        LEFT JOIN producto_proceso pp ON dpo.id_detalle = pp.id_detalle_producto
+        LEFT JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
         WHERE dpo.id_orden = $1
+        GROUP BY dpo.id_detalle, dpo.cantidad
       `;
       
       const result = await db.query(query, [idOrden, idProcesoEntrega]);
@@ -1204,10 +1200,20 @@ class AdvanceOrderModel {
         return false;
       }
       
-      const { total_products, products_in_delivery } = result.rows[0];
+      // Verificar que TODOS los productos tengan su cantidad completa en entrega
+      for (const producto of result.rows) {
+        const cantidadTotal = parseInt(producto.cantidad_total);
+        const cantidadEnEntrega = parseInt(producto.cantidad_en_entrega);
+        
+        // Si algún producto no está completamente en entrega, retornar false
+        if (cantidadTotal !== cantidadEnEntrega) {
+          console.log(`Producto ${producto.id_detalle}: Total=${cantidadTotal}, En entrega=${cantidadEnEntrega}`);
+          return false;
+        }
+      }
       
-      // Verificar que haya productos y que todos estén en entrega
-      return parseInt(total_products) > 0 && parseInt(total_products) === parseInt(products_in_delivery);
+      // Solo retornar true si todos los productos están completamente en entrega
+      return true;
     } catch (error) {
       throw new Error(`Error al verificar si todos los productos están en entrega: ${error.message}`);
     }

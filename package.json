@@ -1,15 +1,15 @@
 {
-  "name": "back-end",
-  "version": "1.0.0",
+  "name": "uniformes-moda-backend",
+  "version": "1.0.8",
+  "description": "Backend para el sistema de gestión de uniformes Moda",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
+  "author": "Uniformes Moda Team",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "@azure/storage-blob": "^12.28.0",
     "axios": "^1.10.0",

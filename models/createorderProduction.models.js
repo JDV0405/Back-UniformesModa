@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
-const { saveFileWithFallback, uploadToBlob, isAzureBlobAvailable } = require('../config/azureStorage');
+const { saveFileWithFallback, uploadToBlob, isAzureBlobAvailable, deleteFromBlob } = require('../config/azureStorage');
 
 async function createOrder(orderData, clientData, products, paymentInfo, paymentProofFile, productFiles, baseUrl) {
     const client = await pool.connect();
@@ -478,42 +478,119 @@ async function deleteOrder(orderId) {
             throw new Error('La orden especificada no existe');
         }
         
-        // 1. Eliminar registros en producto_proceso relacionados con los detalles de la orden
+        // Obtener todas las URLs de imágenes de productos asociadas a la orden
+        const productImagesResult = await client.query(
+            'SELECT url_producto FROM detalle_producto_orden WHERE id_orden = $1 AND url_producto IS NOT NULL',
+            [orderId]
+        );
+        
+        // Obtener la URL del comprobante de pago si existe
+        const comprobanteResult = await client.query(
+            'SELECT cp.url_comprobante FROM orden_produccion op LEFT JOIN comprobante_pago cp ON op.id_comprobante_pago = cp.id_comprobante_pago WHERE op.id_orden = $1',
+            [orderId]
+        );
+        
+        // Recopilar todas las URLs de imágenes para eliminar
+        const imagesToDelete = [];
+        
+        // Agregar URLs de productos
+        productImagesResult.rows.forEach(row => {
+            if (row.url_producto) {
+                const urls = row.url_producto.split(',').map(url => url.trim()).filter(url => url);
+                imagesToDelete.push(...urls);
+            }
+        });
+        
+        // Agregar URL del comprobante de pago
+        if (comprobanteResult.rows[0]?.url_comprobante) {
+            imagesToDelete.push(comprobanteResult.rows[0].url_comprobante);
+        }
+        
+        // Seguir la secuencia exacta de eliminación proporcionada
+        
+        // Primero, obtener los IDs de las facturas relacionadas ANTES de eliminar factura_producto_proceso
+        const facturasResult = await client.query(`
+            SELECT DISTINCT fpp.id_factura
+            FROM factura_producto_proceso fpp
+            INNER JOIN producto_proceso pp ON fpp.id_producto_proceso = pp.id_producto_proceso
+            INNER JOIN detalle_proceso dp ON pp.id_detalle_proceso = dp.id_detalle_proceso
+            WHERE dp.id_orden = $1`,
+            [orderId]
+        );
+        
+        // 1. Borrar de factura_producto_proceso
         await client.query(`
-            DELETE FROM producto_proceso 
-            WHERE id_detalle_producto IN (
-                SELECT id_detalle FROM detalle_producto_orden WHERE id_orden = $1
+            DELETE FROM factura_producto_proceso
+            WHERE id_producto_proceso IN (
+                SELECT id_producto_proceso
+                FROM producto_proceso
+                WHERE id_detalle_proceso IN (
+                    SELECT id_detalle_proceso
+                    FROM detalle_proceso
+                    WHERE id_orden = $1
+                )
             )`,
             [orderId]
         );
         
-        // 2. Eliminar los detalles de productos de la orden
-        await client.query(
-            'DELETE FROM detalle_producto_orden WHERE id_orden = $1',
+        // 2. Eliminar las facturas principales ahora que tenemos los IDs
+        for (const facturaRow of facturasResult.rows) {
+            await client.query(
+                'DELETE FROM factura WHERE id_factura = $1',
+                [facturaRow.id_factura]
+            );
+        }
+        
+        // 3. Borrar de producto_proceso
+        await client.query(`
+            DELETE FROM producto_proceso
+            WHERE id_detalle_proceso IN (
+                SELECT id_detalle_proceso
+                FROM detalle_proceso
+                WHERE id_orden = $1
+            )`,
             [orderId]
         );
         
-        // 3. Eliminar los procesos relacionados a la orden
+        // 4. Borrar de historial_empleado_proceso
+        await client.query(`
+            DELETE FROM historial_empleado_proceso
+            WHERE id_detalle_proceso IN (
+                SELECT id_detalle_proceso
+                FROM detalle_proceso
+                WHERE id_orden = $1
+            )`,
+            [orderId]
+        );
+        
+        // 5. Borrar de detalle_proceso
         await client.query(
             'DELETE FROM detalle_proceso WHERE id_orden = $1',
             [orderId]
         );
         
-        // 4. Obtener el ID del comprobante de pago para eliminarlo después
-        const comprobanteResult = await client.query(
-            'SELECT id_comprobante_pago FROM orden_produccion WHERE id_orden = $1',
+        // 6. Borrar de detalle_producto_orden
+        await client.query(
+            'DELETE FROM detalle_producto_orden WHERE id_orden = $1',
             [orderId]
         );
         
+        // 7. Borrar de valoracion
+        await client.query(
+            'DELETE FROM valoracion WHERE id_orden_produccion = $1',
+            [orderId]
+        );
+        
+        // 8. Obtener el ID del comprobante de pago para eliminarlo después
         const comprobanteId = comprobanteResult.rows[0]?.id_comprobante_pago;
         
-        // 5. Eliminar la orden de producción
+        // 9. Finalmente, borrar la orden
         const deleteResult = await client.query(
             'DELETE FROM orden_produccion WHERE id_orden = $1 RETURNING id_orden, id_cliente',
             [orderId]
         );
         
-        // 6. Eliminar el comprobante de pago si existe
+        // 10. Eliminar el comprobante de pago si existe
         if (comprobanteId) {
             await client.query(
                 'DELETE FROM comprobante_pago WHERE id_comprobante_pago = $1',
@@ -521,14 +598,54 @@ async function deleteOrder(orderId) {
             );
         }
         
+        // Confirmar transacción antes de eliminar imágenes
         await client.query('COMMIT');
+        
+        // Eliminar imágenes de Azure Blob Storage (después de confirmar la transacción)
+        if (imagesToDelete.length > 0) {
+            console.log(`Eliminando ${imagesToDelete.length} imágenes asociadas a la orden ${orderId}`);
+            
+            for (const imageUrl of imagesToDelete) {
+                try {
+                    // Solo intentar eliminar si la imagen está en Azure Blob Storage
+                    if (imageUrl.includes('blob.core.windows.net')) {
+                        const deleted = await deleteFromBlob(imageUrl);
+                        if (deleted) {
+                            console.log(`✅ Imagen eliminada de Azure: ${imageUrl}`);
+                        } else {
+                            console.warn(`⚠️  No se pudo eliminar imagen de Azure: ${imageUrl}`);
+                        }
+                    } else {
+                        // Es una imagen local, intentar eliminar del filesystem local
+                        try {
+                            // Extraer el path local desde la URL
+                            const urlParts = imageUrl.split('/');
+                            const folder = urlParts[urlParts.length - 2];
+                            const filename = urlParts[urlParts.length - 1];
+                            const localPath = path.join(os.homedir(), 'Desktop', 'Uniformes_Imagenes', folder, filename);
+                            
+                            if (fs.existsSync(localPath)) {
+                                fs.unlinkSync(localPath);
+                                console.log(`✅ Imagen local eliminada: ${localPath}`);
+                            }
+                        } catch (localError) {
+                            console.warn(`⚠️  No se pudo eliminar imagen local: ${imageUrl}`, localError.message);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`❌ Error eliminando imagen: ${imageUrl}`, error.message);
+                    // No fallar la operación completa por errores de eliminación de imágenes
+                }
+            }
+        }
         
         return {
             success: true,
             message: "Orden eliminada correctamente",
             data: { 
                 id_orden: parseInt(orderId),
-                id_cliente: deleteResult.rows[0]?.id_cliente 
+                id_cliente: deleteResult.rows[0]?.id_cliente,
+                imagenes_eliminadas: imagesToDelete.length
             }
         };
         

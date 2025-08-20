@@ -11,6 +11,7 @@ const createElementsRoutes = require('./routes/createElements.routes.js');
 const valoracionesRoutes = require('./routes/assessment.routes.js');
 const confeccionistaRoutes = require('./routes/manufacturer.routes.js'); 
 const publicApisRoutes = require('./routes/publicApis.routes.js');
+const systemRoutes = require('./routes/system.routes.js');
 const path = require('path');
 const { isAzureBlobAvailable } = require('./config/azureStorage');
 
@@ -109,6 +110,7 @@ app.use('/api', createElementsRoutes);
 app.use('/api', valoracionesRoutes);
 app.use('/api', confeccionistaRoutes);
 app.use('/api/public', publicApisRoutes);
+app.use('/api/system', systemRoutes);
 
 
 // Use routes
