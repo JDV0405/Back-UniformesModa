@@ -1,6 +1,6 @@
 {
   "name": "uniformes-moda-backend",
-  "version": "1.0.8",
+  "version": "1.0.3",
   "description": "Backend para el sistema de gestión de uniformes Moda",
   "main": "app.js",
   "scripts": {
